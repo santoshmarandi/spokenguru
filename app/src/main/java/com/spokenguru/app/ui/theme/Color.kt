@@ -30,29 +30,31 @@ val GuruPurpleBorder: Color
     @ReadOnlyComposable
     get() = LocalAppThemePalette.current.primaryBorder
 
+// Status & Accent Colors (Modern, Clean, Minimalist)
 val GuruMint = Color(0xFF10B981)
-val GuruMintLight = Color(0xFFE6FBF2)
+val GuruMintLight = Color(0xFFECFDF5)
 val GuruMintDark = Color(0xFF047857)
 
-val GuruRed = Color(0xFFE11D48)
-val GuruRedLight = Color(0xFFFEECEE)
-val GuruRedDark = Color(0xFFBE123C)
+val GuruRed = Color(0xFFEF4444)
+val GuruRedLight = Color(0xFFFEF2F2)
+val GuruRedDark = Color(0xFFB91C1C)
 
-val GuruAmber = Color(0xFFD97706)
-val GuruAmberLight = Color(0xFFFEF9E7)
+val GuruAmber = Color(0xFFF59E0B)
+val GuruAmberLight = Color(0xFFFFFBEB)
 
-val GuruBlue = Color(0xFF2563EB)
-val GuruBlueLight = Color(0xFFEBF5FF)
+val GuruBlue = Color(0xFF3B82F6)
+val GuruBlueLight = Color(0xFFEFF6FF)
 
 val GuruBg: Color
     @Composable
     @ReadOnlyComposable
     get() = LocalAppThemePalette.current.lightBg
 
-val GuruCardBorder = Color(0xFFECEAFE)
-val GuruCardBorderDashed = Color(0xFFDDD8FD)
-val GuruTextDark = Color(0xFF1E1B4B)
-val GuruTextMuted = Color(0xFF6B7280)
+// Clean Minimalist Neutrals
+val GuruCardBorder = Color(0xFFE5E7EB)
+val GuruCardBorderDashed = Color(0xFFD1D5DB)
+val GuruTextDark = Color(0xFF111827)
+val GuruTextMuted = Color(0xFF4B5563)
 val GuruTextSubtle = Color(0xFF9CA3AF)
 
 // Dark Theme Variants
@@ -71,5 +73,5 @@ val GuruDarkCardBorder: Color
     @ReadOnlyComposable
     get() = LocalAppThemePalette.current.darkCardBorder
 
-val GuruDarkText = Color(0xFFF5F3FF)
-val GuruDarkTextMuted = Color(0xFFA5B4FC)
+val GuruDarkText = Color(0xFFF9FAFB)
+val GuruDarkTextMuted = Color(0xFF9CA3AF)

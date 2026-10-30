@@ -124,7 +124,7 @@ fun ImportLessonScreen(
                 title = {
                     Text(
                         text = "Manage & Import Lessons",
-                        fontFamily = FontFamily.Serif,
+                        fontFamily = FontFamily.Default,
                         fontWeight = FontWeight.Bold
                     )
                 },

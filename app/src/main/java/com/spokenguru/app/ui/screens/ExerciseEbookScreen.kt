@@ -176,7 +176,7 @@ fun EbookChaptersListView(
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = "Exercise eBook",
-                        fontFamily = FontFamily.Serif,
+                        fontFamily = FontFamily.Default,
                         fontWeight = FontWeight.Bold,
                         fontSize = 26.sp,
                         color = if (isDark) GuruDarkText else GuruTextDark
@@ -241,7 +241,7 @@ fun EbookChaptersListView(
 
                         Text(
                             text = "Spoken English Guru eBook — Reading Edition",
-                            fontFamily = FontFamily.Serif,
+                            fontFamily = FontFamily.Default,
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp,
                             color = if (isDark) GuruDarkText else GuruTextDark
@@ -315,7 +315,7 @@ fun EbookChaptersListView(
                 ) {
                     Text(
                         text = "Curriculum Chapters",
-                        fontFamily = FontFamily.Serif,
+                        fontFamily = FontFamily.Default,
                         fontWeight = FontWeight.Bold,
                         fontSize = 17.sp,
                         color = if (isDark) GuruDarkText else GuruTextDark
@@ -393,7 +393,7 @@ fun EbookChaptersListView(
 
                         Text(
                             text = lesson.title,
-                            fontFamily = FontFamily.Serif,
+                            fontFamily = FontFamily.Default,
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
                             color = if (isDark) GuruDarkText else GuruTextDark
@@ -527,7 +527,7 @@ fun LessonExerciseReaderView(
                         )
                         Text(
                             text = lesson.title,
-                            fontFamily = FontFamily.Serif,
+                            fontFamily = FontFamily.Default,
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp,
                             color = if (isDark) GuruDarkText else GuruTextDark
@@ -596,7 +596,7 @@ fun LessonExerciseReaderView(
 
                         Text(
                             text = "Lesson ${String.format("%02d", lesson.lessonNumber)}: ${lesson.title}",
-                            fontFamily = FontFamily.Serif,
+                            fontFamily = FontFamily.Default,
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp,
                             color = if (isDark) GuruDarkText else GuruTextDark
@@ -864,7 +864,7 @@ fun LessonExerciseReaderView(
                                 Column {
                                     Text(
                                         text = q.primaryAnswer,
-                                        fontFamily = FontFamily.Serif,
+                                        fontFamily = FontFamily.Default,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 16.sp,
                                         color = GuruPurple

@@ -66,44 +66,44 @@ fun getThemePalette(preset: AppThemePreset): AppThemePalette {
             primaryDark = Color(0xFF3730A3),
             primaryDeep = Color(0xFF2B228B),
             primaryLight = Color(0xFFEEECFD),
-            primaryBorder = Color(0xFFDDD8FD),
-            lightBg = Color(0xFFF7F6FF),
-            darkBg = Color(0xFF0E0D1B),
-            darkSurface = Color(0xFF17152D),
-            darkCardBorder = Color(0xFF2A264F)
+            primaryBorder = Color(0xFFE0E7FF),
+            lightBg = Color(0xFFF9FAFB),
+            darkBg = Color(0xFF0F172A),
+            darkSurface = Color(0xFF1E293B),
+            darkCardBorder = Color(0xFF334155)
         )
         AppThemePreset.DUO_GREEN -> AppThemePalette(
             primary = Color(0xFF58CC02),
             primaryDark = Color(0xFF46A302),
             primaryDeep = Color(0xFF2F7A00),
             primaryLight = Color(0xFFE9FCDA),
-            primaryBorder = Color(0xFFBCEAA0),
-            lightBg = Color(0xFFF7FCF5),
-            darkBg = Color(0xFF0D180F),
-            darkSurface = Color(0xFF152618),
-            darkCardBorder = Color(0xFF243B27)
+            primaryBorder = Color(0xFFDCFCE7),
+            lightBg = Color(0xFFF9FAFB),
+            darkBg = Color(0xFF0A140D),
+            darkSurface = Color(0xFF132218),
+            darkCardBorder = Color(0xFF1F3827)
         )
         AppThemePreset.OCEAN_BLUE -> AppThemePalette(
             primary = Color(0xFF0284C7),
             primaryDark = Color(0xFF0369A1),
             primaryDeep = Color(0xFF075985),
             primaryLight = Color(0xFFE0F2FE),
-            primaryBorder = Color(0xFFBAE6FD),
-            lightBg = Color(0xFFF5FAFF),
-            darkBg = Color(0xFF0C1620),
-            darkSurface = Color(0xFF132230),
-            darkCardBorder = Color(0xFF20374D)
+            primaryBorder = Color(0xFFE0F2FE),
+            lightBg = Color(0xFFF9FAFB),
+            darkBg = Color(0xFF0C141F),
+            darkSurface = Color(0xFF152232),
+            darkCardBorder = Color(0xFF22354D)
         )
         AppThemePreset.SUNSET_AMBER -> AppThemePalette(
             primary = Color(0xFFEA580C),
             primaryDark = Color(0xFFC2410C),
             primaryDeep = Color(0xFF9A3412),
             primaryLight = Color(0xFFFFEDE6),
-            primaryBorder = Color(0xFFFFCCBA),
-            lightBg = Color(0xFFFFF9F6),
-            darkBg = Color(0xFF1E100A),
-            darkSurface = Color(0xFF2B1810),
-            darkCardBorder = Color(0xFF46271A)
+            primaryBorder = Color(0xFFFFEDD5),
+            lightBg = Color(0xFFF9FAFB),
+            darkBg = Color(0xFF18100C),
+            darkSurface = Color(0xFF271B15),
+            darkCardBorder = Color(0xFF3E2B21)
         )
     }
 }

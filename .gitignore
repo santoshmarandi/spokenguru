@@ -1,13 +1,14 @@
 *.iml
 .gradle
 /local.properties
+local.properties
 /.idea/
 .DS_Store
 /build
 /captures
 .externalNativeBuild
 .cxx
-local.properties
+build-artifacts/
 # Ignore everything in app/build except outputs
 app/build/*
 !app/build/outputs/

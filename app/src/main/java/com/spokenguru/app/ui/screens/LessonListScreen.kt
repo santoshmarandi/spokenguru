@@ -21,38 +21,24 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.MenuBook
-import androidx.compose.material.icons.filled.NearMe
-import androidx.compose.material.icons.filled.QuestionMark
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Stars
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.ui.platform.LocalContext
-import com.spokenguru.app.ui.theme.AppThemePreset
-import com.spokenguru.app.ui.theme.DarkModePreference
-import com.spokenguru.app.ui.theme.ThemeState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -64,7 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -72,12 +58,12 @@ import androidx.compose.ui.unit.sp
 import com.spokenguru.app.data.model.LessonEntity
 import com.spokenguru.app.data.repository.LessonRepository
 import com.spokenguru.app.ui.components.AppBottomNavigation
+import com.spokenguru.app.ui.components.GuruButton
+import com.spokenguru.app.ui.components.GuruButtonVariant
 import com.spokenguru.app.ui.components.NavTab
-import com.spokenguru.app.ui.theme.GuruAmber
-import com.spokenguru.app.ui.theme.GuruAmberLight
+import com.spokenguru.app.ui.theme.AppThemePreset
+import com.spokenguru.app.ui.theme.DarkModePreference
 import com.spokenguru.app.ui.theme.GuruBg
-import com.spokenguru.app.ui.theme.GuruBlue
-import com.spokenguru.app.ui.theme.GuruBlueLight
 import com.spokenguru.app.ui.theme.GuruCardBorder
 import com.spokenguru.app.ui.theme.GuruDarkBg
 import com.spokenguru.app.ui.theme.GuruDarkCardBorder
@@ -93,6 +79,7 @@ import com.spokenguru.app.ui.theme.GuruRedLight
 import com.spokenguru.app.ui.theme.GuruTextDark
 import com.spokenguru.app.ui.theme.GuruTextMuted
 import com.spokenguru.app.ui.theme.GuruTextSubtle
+import com.spokenguru.app.ui.theme.ThemeState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -121,183 +108,205 @@ fun LessonListScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(bottom = 24.dp)
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp)
         ) {
-            // Top App Bar matching reference
+            // Minimalist Clean Top Bar
             item {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .padding(bottom = 16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .shadow(1.dp, CircleShape)
-                            .clip(CircleShape)
-                            .background(if (isDark) GuruDarkSurface else Color.White)
-                            .size(42.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Menu,
-                            contentDescription = "Menu",
-                            tint = if (isDark) GuruDarkText else GuruTextDark,
-                            modifier = Modifier.size(20.dp)
+                    Column {
+                        Text(
+                            text = "Spoken Guru",
+                            fontFamily = FontFamily.Default,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 24.sp,
+                            color = if (isDark) GuruDarkText else GuruTextDark
+                        )
+                        Text(
+                            text = "English Practice & Lessons",
+                            fontFamily = FontFamily.Default,
+                            fontSize = 13.sp,
+                            color = if (isDark) GuruDarkTextMuted else GuruTextMuted
                         )
                     }
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Theme Palette Switcher
+                    IconButton(
+                        onClick = { showThemeDialog = true },
+                        modifier = Modifier.size(38.dp)
+                    ) {
                         Icon(
-                            imageVector = Icons.Default.MenuBook,
-                            contentDescription = null,
+                            imageVector = Icons.Default.Palette,
+                            contentDescription = "Theme",
                             tint = GuruPurple,
                             modifier = Modifier.size(22.dp)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "English Practice Guru",
-                            fontFamily = FontFamily.Serif,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp,
-                            color = if (isDark) GuruDarkText else GuruTextDark
-                        )
-                    }
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Quick Theme Palette Switcher
-                        Box(
-                            modifier = Modifier
-                                .shadow(1.dp, CircleShape)
-                                .clip(CircleShape)
-                                .background(if (isDark) GuruDarkSurface else Color.White)
-                                .clickable { showThemeDialog = true }
-                                .size(42.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Palette,
-                                contentDescription = "Change Theme",
-                                tint = GuruPurple,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-
-                        // Search Button
-                        Box(
-                            modifier = Modifier
-                                .shadow(1.dp, CircleShape)
-                                .clip(CircleShape)
-                                .background(if (isDark) GuruDarkSurface else Color.White)
-                                .size(42.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = "Search",
-                                tint = if (isDark) GuruDarkText else GuruTextDark,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
                     }
                 }
             }
 
-            // Header: Lessons & Chapters
+            // Quick Resume / Active Lesson Banner (Minimalist)
+            val activeLesson = lessons.firstOrNull { it.isAvailable }
+            if (activeLesson != null) {
+                item {
+                    val shape = RoundedCornerShape(18.dp)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .shadow(2.dp, shape, ambientColor = Color.Black.copy(alpha = 0.05f))
+                            .clip(shape)
+                            .background(if (isDark) GuruDarkSurface else Color.White)
+                            .border(1.dp, if (isDark) GuruDarkCardBorder else GuruCardBorder, shape)
+                            .clickable { onSelectLesson(activeLesson.lessonNumber) }
+                            .padding(18.dp)
+                    ) {
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "CONTINUE PRACTICE",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = GuruPurple,
+                                    letterSpacing = 0.8.sp
+                                )
+                                Text(
+                                    text = "Lesson ${activeLesson.lessonNumber}",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (isDark) GuruDarkTextMuted else GuruTextMuted
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            Text(
+                                text = activeLesson.title,
+                                fontFamily = FontFamily.Default,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 17.sp,
+                                color = if (isDark) GuruDarkText else GuruTextDark
+                            )
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Clean Progress Bar
+                            val progress = if (activeLesson.totalQuestions > 0) {
+                                (activeLesson.completedQuestions.toFloat() / activeLesson.totalQuestions).coerceIn(0f, 1f)
+                            } else 0f
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                LinearProgressIndicator(
+                                    progress = { progress },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(6.dp)
+                                        .clip(RoundedCornerShape(3.dp)),
+                                    color = GuruPurple,
+                                    trackColor = if (isDark) Color(0xFF1E293B) else Color(0xFFE5E7EB)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = "${activeLesson.completedQuestions}/${activeLesson.totalQuestions}",
+                                    fontFamily = FontFamily.Default,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = GuruPurple
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
+
+            // Mistakes revision banner if any (Subtle & Clean)
+            if (mistakesCount > 0) {
+                item {
+                    val shape = RoundedCornerShape(14.dp)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(shape)
+                            .background(if (isDark) Color(0xFF2C1318) else GuruRedLight)
+                            .border(1.dp, GuruRed.copy(alpha = 0.3f), shape)
+                            .clickable { onTabSelected(NavTab.PROFILE) }
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = null,
+                                    tint = GuruRed,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = "$mistakesCount mistakes need review",
+                                    fontFamily = FontFamily.Default,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 14.sp,
+                                    color = GuruRed
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = GuruRed,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
+
+            // Section Header
             item {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                        .padding(vertical = 6.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Lessons & Chapters",
-                            fontFamily = FontFamily.Serif,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 26.sp,
-                            color = if (isDark) GuruDarkText else GuruTextDark
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Bilingual English & Hindi practice lessons from eBook 1",
-                            fontSize = 14.sp,
-                            color = if (isDark) GuruDarkTextMuted else GuruTextMuted,
-                            lineHeight = 20.sp
-                        )
-                    }
-                    IconButton(onClick = {}) {
-                        Icon(
-                            imageVector = Icons.Default.FilterList,
-                            contentDescription = "Filter",
-                            tint = if (isDark) GuruDarkText else GuruTextDark
-                        )
-                    }
+                    Text(
+                        text = "Curriculum Lessons",
+                        fontFamily = FontFamily.Default,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = if (isDark) GuruDarkText else GuruTextDark
+                    )
+                    Text(
+                        text = "${lessons.size} Lessons",
+                        fontFamily = FontFamily.Default,
+                        fontSize = 13.sp,
+                        color = if (isDark) GuruDarkTextMuted else GuruTextMuted
+                    )
                 }
-            }
-
-            // Mistakes banner if any
-            if (mistakesCount > 0) {
-                item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 6.dp),
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (isDark) Color(0xFF2E1922) else GuruRedLight
-                        ),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, GuruRed.copy(alpha = 0.5f))
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Pending Revisions: $mistakesCount Mistakes",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp,
-                                    color = GuruRed
-                                )
-                                Text(
-                                    text = "Inhe dubara practice karke clear karein",
-                                    fontSize = 12.sp,
-                                    color = if (isDark) GuruDarkTextMuted else GuruTextMuted
-                                )
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(GuruRed)
-                                    .clickable { onTabSelected(NavTab.PROFILE) }
-                                    .padding(horizontal = 14.dp, vertical = 8.dp)
-                            ) {
-                                Text(
-                                    text = "Review >",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp
-                                )
-                            }
-                        }
-                    }
-                }
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
             // Display lessons
             val visibleLessons = if (showAllChapters) lessons else lessons.take(6)
             itemsIndexed(visibleLessons) { index, lesson ->
-                LessonGuruCard(
+                MinimalLessonCard(
                     lesson = lesson,
                     index = index,
                     onClick = {
@@ -306,32 +315,26 @@ fun LessonListScreen(
                         }
                     }
                 )
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
             // "Browse All 40 Chapters" button
             item {
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Box(
                     modifier = Modifier.fillMaxWidth(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .shadow(1.dp, RoundedCornerShape(20.dp))
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(if (isDark) GuruDarkSurface else Color.White)
-                            .border(1.dp, if (isDark) GuruDarkCardBorder else GuruCardBorder, RoundedCornerShape(20.dp))
-                            .clickable { showAllChapters = !showAllChapters }
-                            .padding(horizontal = 24.dp, vertical = 12.dp)
+                    TextButton(
+                        onClick = { showAllChapters = !showAllChapters }
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = if (showAllChapters) "Show Top Chapters ⌃" else "Browse All 40 Chapters ⌵",
-                                color = GuruPurple,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
-                            )
-                        }
+                        Text(
+                            text = if (showAllChapters) "Show fewer lessons" else "View all 40 lessons",
+                            fontFamily = FontFamily.Default,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp,
+                            color = GuruPurple
+                        )
                     }
                 }
             }
@@ -346,134 +349,117 @@ fun LessonListScreen(
 }
 
 @Composable
-fun LessonGuruCard(
+fun MinimalLessonCard(
     lesson: LessonEntity,
     index: Int,
     onClick: () -> Unit
 ) {
     val isDark = isAppDarkTheme()
-    val shape = RoundedCornerShape(22.dp)
+    val shape = RoundedCornerShape(16.dp)
 
-    // Vibrant icons and color palette matching reference UI
-    val (iconBg, iconTint, iconVector, hindiSub) = when (lesson.lessonNumber) {
-        1 -> Quadruple(GuruPurpleLight, GuruPurple, Icons.Default.NearMe, "This, That, These & Those का प्रयोग")
-        2 -> Quadruple(GuruBlueLight, GuruBlue, Icons.Default.Schedule, "समय बताना (Time telling in English)")
-        3 -> Quadruple(Color(0xFFF3E8FF), Color(0xFF9333EA), Icons.Default.QuestionMark, "WH Family के शब्द (Interrogative)")
-        4 -> Quadruple(GuruRedLight, GuruRed, Icons.Default.Edit, "क्रिया के तीन रूप (V1, V2, V3)")
-        5 -> Quadruple(Color(0xFFE0F2FE), Color(0xFF0284C7), Icons.Default.Layers, "विशेषण की तीन अवस्थाएं (Degrees)")
-        6 -> Quadruple(Color(0xFFF3E8FF), Color(0xFF9333EA), Icons.Default.Stars, "क्रिया विशेषण की तुलना (Adverbs Degrees)")
-        else -> Quadruple(GuruPurpleLight, GuruPurple, Icons.Default.MenuBook, "English Practice Exercise")
-    }
+    val isCompleted = lesson.isAvailable && lesson.completedQuestions >= lesson.totalQuestions && lesson.totalQuestions > 0
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-            .shadow(2.dp, shape, ambientColor = GuruPurple.copy(alpha = 0.08f))
+            .shadow(1.dp, shape, ambientColor = Color.Black.copy(alpha = 0.04f))
             .clip(shape)
             .background(if (isDark) GuruDarkSurface else Color.White)
             .border(1.dp, if (isDark) GuruDarkCardBorder else GuruCardBorder, shape)
             .clickable(enabled = lesson.isAvailable, onClick = onClick)
-            .padding(16.dp)
+            .padding(14.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Left rounded icon
+            // Clean Index Indicator
             Box(
                 modifier = Modifier
-                    .size(46.dp)
-                    .clip(CircleShape)
-                    .background(iconBg),
+                    .size(38.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(
+                        if (isCompleted) GuruMintLight
+                        else if (lesson.isAvailable) (if (isDark) Color(0xFF1E293B) else GuruPurpleLight)
+                        else (if (isDark) Color(0xFF161E2E) else Color(0xFFF3F4F6))
+                    ),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = iconVector,
-                    contentDescription = null,
-                    tint = iconTint,
-                    modifier = Modifier.size(22.dp)
-                )
+                if (isCompleted) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = "Completed",
+                        tint = GuruMint,
+                        modifier = Modifier.size(18.dp)
+                    )
+                } else {
+                    Text(
+                        text = String.format("%02d", lesson.lessonNumber),
+                        fontFamily = FontFamily.Default,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = if (lesson.isAvailable) GuruPurple else GuruTextSubtle
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(14.dp))
 
-            // Center details
+            // Lesson Details
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Lesson ${String.format("%02d", lesson.lessonNumber)} • Page ${lesson.pageNumber}",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = if (isDark) GuruDarkTextMuted else GuruTextMuted
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
                     text = lesson.title,
-                    fontFamily = FontFamily.Serif,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = if (isDark) GuruDarkText else GuruTextDark
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = hindiSub,
-                    fontSize = 12.sp,
-                    color = if (isDark) GuruDarkTextMuted else GuruTextMuted
+                    fontFamily = FontFamily.Default,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 15.sp,
+                    color = if (lesson.isAvailable) {
+                        if (isDark) GuruDarkText else GuruTextDark
+                    } else GuruTextSubtle
                 )
 
-                if (lesson.isAvailable && lesson.completedQuestions > 0) {
-                    Spacer(modifier = Modifier.height(6.dp))
+                if (lesson.isAvailable && lesson.completedQuestions > 0 && !isCompleted) {
+                    Spacer(modifier = Modifier.height(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         LinearProgressIndicator(
                             progress = { (lesson.completedQuestions.toFloat() / lesson.totalQuestions).coerceIn(0f, 1f) },
                             modifier = Modifier
-                                .weight(1f)
-                                .height(6.dp)
-                                .clip(RoundedCornerShape(3.dp)),
+                                .width(90.dp)
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(2.dp)),
                             color = GuruPurple,
-                            trackColor = if (isDark) Color(0xFF28254A) else Color(0xFFEEECFD)
+                            trackColor = if (isDark) Color(0xFF1E293B) else Color(0xFFE5E7EB)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "${lesson.completedQuestions}/${lesson.totalQuestions}",
                             fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = GuruPurple
+                            color = GuruTextSubtle
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(8.dp))
 
-            // Right "Practice →" Pill Button
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(if (lesson.isAvailable) (if (isDark) Color(0xFF272449) else GuruPurpleLight) else (if (isDark) Color(0xFF1B1A2C) else Color(0xFFF3F3F7)))
-                    .padding(horizontal = 14.dp, vertical = 8.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = if (lesson.isAvailable) "Practice" else "Soon",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (lesson.isAvailable) GuruPurple else GuruTextSubtle
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Icon(
-                        imageVector = if (lesson.isAvailable) Icons.Default.ArrowForward else Icons.Default.Lock,
-                        contentDescription = null,
-                        tint = if (lesson.isAvailable) GuruPurple else GuruTextSubtle,
-                        modifier = Modifier.size(14.dp)
-                    )
-                }
+            // Status Indicator
+            if (lesson.isAvailable) {
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = "Open",
+                    tint = GuruTextSubtle,
+                    modifier = Modifier.size(18.dp)
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = "Locked",
+                    tint = GuruTextSubtle.copy(alpha = 0.6f),
+                    modifier = Modifier.size(16.dp)
+                )
             }
         }
     }
 }
-
-data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
 
 @Composable
 fun ThemePickerDialog(
@@ -490,12 +476,12 @@ fun ThemePickerDialog(
                     imageVector = Icons.Default.Palette,
                     contentDescription = null,
                     tint = GuruPurple,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(22.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Theme & Mode (थीम व मोड)",
-                    fontFamily = FontFamily.Serif,
+                    text = "Theme & Appearance",
+                    fontFamily = FontFamily.Default,
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
                     color = if (isDark) GuruDarkText else GuruTextDark
@@ -507,8 +493,8 @@ fun ThemePickerDialog(
                 // Display Mode
                 Column {
                     Text(
-                        text = "Display Mode (प्रदर्शन मोड):",
-                        fontWeight = FontWeight.Bold,
+                        text = "Appearance:",
+                        fontWeight = FontWeight.SemiBold,
                         fontSize = 13.sp,
                         color = if (isDark) GuruDarkText else GuruTextDark
                     )
@@ -522,14 +508,14 @@ fun ThemePickerDialog(
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .clip(RoundedCornerShape(12.dp))
+                                    .clip(RoundedCornerShape(10.dp))
                                     .background(
-                                        if (isSelected) GuruPurple else (if (isDark) Color(0xFF262447) else GuruPurpleLight)
+                                        if (isSelected) GuruPurple else (if (isDark) Color(0xFF1E293B) else Color(0xFFF3F4F6))
                                     )
                                     .clickable {
                                         ThemeState.updateDarkMode(context, mode)
                                     }
-                                    .padding(vertical = 10.dp, horizontal = 2.dp),
+                                    .padding(vertical = 8.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
@@ -543,11 +529,11 @@ fun ThemePickerDialog(
                     }
                 }
 
-                // Color Preset
+                // Color Palette
                 Column {
                     Text(
-                        text = "Color Palette (4 रंग थीम):",
-                        fontWeight = FontWeight.Bold,
+                        text = "Color Palette:",
+                        fontWeight = FontWeight.SemiBold,
                         fontSize = 13.sp,
                         color = if (isDark) GuruDarkText else GuruTextDark
                     )
@@ -566,45 +552,35 @@ fun ThemePickerDialog(
                                         Box(
                                             modifier = Modifier
                                                 .weight(1f)
-                                                .clip(RoundedCornerShape(12.dp))
+                                                .clip(RoundedCornerShape(10.dp))
                                                 .background(
-                                                    if (isSelected) (if (isDark) Color(0xFF292452) else Color(0xFFF3F0FE))
-                                                    else (if (isDark) Color(0xFF1B1933) else Color(0xFFFBFBFE))
+                                                    if (isSelected) (if (isDark) Color(0xFF1E293B) else Color(0xFFF3F4F6))
+                                                    else Color.Transparent
                                                 )
                                                 .border(
-                                                    width = if (isSelected) 2.dp else 1.dp,
-                                                    color = if (isSelected) preset.primaryColor else (if (isDark) Color(0xFF2C284C) else Color(0xFFE4E1F4)),
-                                                    shape = RoundedCornerShape(12.dp)
+                                                    width = if (isSelected) 1.5.dp else 1.dp,
+                                                    color = if (isSelected) preset.primaryColor else (if (isDark) GuruDarkCardBorder else GuruCardBorder),
+                                                    shape = RoundedCornerShape(10.dp)
                                                 )
                                                 .clickable {
                                                     ThemeState.updatePreset(context, preset)
                                                 }
-                                                .padding(10.dp)
+                                                .padding(horizontal = 10.dp, vertical = 8.dp)
                                         ) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Box(
                                                     modifier = Modifier
-                                                        .size(20.dp)
+                                                        .size(16.dp)
                                                         .clip(CircleShape)
                                                         .background(preset.primaryColor)
                                                 )
                                                 Spacer(modifier = Modifier.width(8.dp))
-                                                Column {
-                                                    Text(
-                                                        text = preset.title,
-                                                        fontWeight = FontWeight.Bold,
-                                                        fontSize = 11.sp,
-                                                        color = if (isDark) GuruDarkText else GuruTextDark
-                                                    )
-                                                    if (isSelected) {
-                                                        Text(
-                                                            text = "Active ✓",
-                                                            fontSize = 10.sp,
-                                                            color = preset.primaryColor,
-                                                            fontWeight = FontWeight.Bold
-                                                        )
-                                                    }
-                                                }
+                                                Text(
+                                                    text = preset.title,
+                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                    fontSize = 12.sp,
+                                                    color = if (isDark) GuruDarkText else GuruTextDark
+                                                )
                                             }
                                         }
                                     }
@@ -617,10 +593,10 @@ fun ThemePickerDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("DONE", fontWeight = FontWeight.Bold, color = GuruPurple)
+                Text("Done", fontWeight = FontWeight.Bold, color = GuruPurple)
             }
         },
         containerColor = if (isDark) GuruDarkSurface else Color.White,
-        shape = RoundedCornerShape(20.dp)
+        shape = RoundedCornerShape(16.dp)
     )
 }

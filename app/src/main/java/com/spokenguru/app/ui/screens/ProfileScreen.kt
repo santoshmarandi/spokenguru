@@ -140,7 +140,7 @@ fun ProfileScreen(
                         ) {
                             Text(
                                 text = "RS",
-                                fontFamily = FontFamily.Serif,
+                                fontFamily = FontFamily.Default,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 22.sp,
                                 color = GuruPurple
@@ -153,7 +153,7 @@ fun ProfileScreen(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     text = "Rahul Sharma",
-                                    fontFamily = FontFamily.Serif,
+                                    fontFamily = FontFamily.Default,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 20.sp,
                                     color = if (isDark) GuruDarkText else GuruTextDark
@@ -237,8 +237,8 @@ fun ProfileScreen(
 
             // Learning Progress Section
             Text(
-                text = "📈 Learning Progress",
-                fontFamily = FontFamily.Serif,
+                text = "Learning Progress",
+                fontFamily = FontFamily.Default,
                 fontWeight = FontWeight.Bold,
                 fontSize = 17.sp,
                 color = if (isDark) GuruDarkText else GuruTextDark
@@ -306,8 +306,8 @@ fun ProfileScreen(
 
             // Theme & Appearance Section (थीम और मोड)
             Text(
-                text = "🎨 Theme & Appearance (थीम और मोड)",
-                fontFamily = FontFamily.Serif,
+                text = "Theme & Appearance",
+                fontFamily = FontFamily.Default,
                 fontWeight = FontWeight.Bold,
                 fontSize = 17.sp,
                 color = if (isDark) GuruDarkText else GuruTextDark
@@ -477,8 +477,8 @@ fun ProfileScreen(
 
             // Study & eBook Preferences Section
             Text(
-                text = "⚙️ Study & eBook Preferences",
-                fontFamily = FontFamily.Serif,
+                text = "Study & Preferences",
+                fontFamily = FontFamily.Default,
                 fontWeight = FontWeight.Bold,
                 fontSize = 17.sp,
                 color = if (isDark) GuruDarkText else GuruTextDark
@@ -635,7 +635,7 @@ fun StatCard(
 
             Text(
                 text = value,
-                fontFamily = FontFamily.Serif,
+                fontFamily = FontFamily.Default,
                 fontWeight = FontWeight.Bold,
                 fontSize = 20.sp,
                 color = if (isDark) GuruDarkText else GuruTextDark

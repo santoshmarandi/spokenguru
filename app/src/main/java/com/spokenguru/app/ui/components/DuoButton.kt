@@ -29,6 +29,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -60,40 +61,48 @@ fun GuruButton(
     icon: ImageVector? = null,
     subText: String? = null,
     enabled: Boolean = true,
-    height: Dp = 52.dp
+    height: Dp = 50.dp
 ) {
     val isDark = isAppDarkTheme()
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(targetValue = if (isPressed && enabled) 0.98f else 1f, label = "btnScale")
 
-    val shape = RoundedCornerShape(26.dp)
+    val shape = RoundedCornerShape(16.dp)
 
     val (bg, contentColor, borderColor) = when {
-        !enabled -> Triple(Color(0xFFE5E2F4), Color(0xFF9E9AB7), Color.Transparent)
-        variant == GuruButtonVariant.PRIMARY -> Triple(GuruPurpleDeep, Color.White, Color.Transparent)
+        !enabled -> Triple(
+            if (isDark) Color(0xFF1E293B) else Color(0xFFF3F4F6),
+            if (isDark) Color(0xFF475569) else Color(0xFF9CA3AF),
+            Color.Transparent
+        )
+        variant == GuruButtonVariant.PRIMARY -> Triple(GuruPurple, Color.White, Color.Transparent)
         variant == GuruButtonVariant.SECONDARY -> Triple(
             if (isDark) GuruDarkSurface else Color.White,
-            GuruPurple,
-            if (isDark) GuruDarkCardBorder else Color(0xFFDDD8FD)
+            if (isDark) Color.White else GuruTextDark,
+            if (isDark) GuruDarkCardBorder else GuruCardBorder
         )
         variant == GuruButtonVariant.DANGER -> Triple(GuruRed, Color.White, Color.Transparent)
         variant == GuruButtonVariant.MUTED -> Triple(
-            if (isDark) Color(0xFF232042) else GuruPurpleLight,
+            if (isDark) Color(0xFF1E293B) else GuruPurpleLight,
             GuruPurple,
             Color.Transparent
         )
-        else -> Triple(GuruPurpleDeep, Color.White, Color.Transparent)
+        else -> Triple(GuruPurple, Color.White, Color.Transparent)
     }
 
     Box(
         modifier = modifier
             .scale(scale)
             .height(height)
-            .shadow(if (enabled && variant == GuruButtonVariant.PRIMARY) 4.dp else 0.dp, shape)
+            .shadow(
+                elevation = if (enabled && variant == GuruButtonVariant.PRIMARY) 2.dp else 0.dp,
+                shape = shape,
+                ambientColor = Color.Black.copy(alpha = 0.08f)
+            )
             .clip(shape)
             .background(bg)
-            .border(if (borderColor != Color.Transparent) 1.5.dp else 0.dp, borderColor, shape)
+            .border(if (borderColor != Color.Transparent) 1.dp else 0.dp, borderColor, shape)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -113,13 +122,13 @@ fun GuruButton(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = contentColor.copy(alpha = 0.7f),
-                    letterSpacing = 1.sp
+                    letterSpacing = 0.5.sp
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Box(
                     modifier = Modifier
                         .width(1.dp)
-                        .height(18.dp)
+                        .height(16.dp)
                         .background(contentColor.copy(alpha = 0.3f))
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -127,10 +136,11 @@ fun GuruButton(
 
             Text(
                 text = text,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Default,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
                 color = contentColor,
-                letterSpacing = 0.3.sp
+                letterSpacing = 0.2.sp
             )
 
             if (icon != null) {
@@ -139,7 +149,7 @@ fun GuruButton(
                     imageVector = icon,
                     contentDescription = null,
                     tint = contentColor,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(18.dp)
                 )
             }
         }
