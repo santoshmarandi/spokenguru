@@ -1,7 +1,6 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="duo_green">#58CC02</color>
-    <color name="duo_green_dark">#46A302</color>
-    <color name="duo_red">#FF4B4B</color>
-    <color name="duo_blue">#1CB0F6</color>
+    <color name="primary">#1A237E</color>
+    <color name="primary_dark">#0D1642</color>
+    <color name="accent">#FF6F00</color>
+    <color name="white">#FFFFFF</color>
 </resources>

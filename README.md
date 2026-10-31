@@ -1,95 +1,111 @@
-# Spoken Guru — Duolingo-style English Learning Android App
-
-An interactive Android application built with **Kotlin** and **Jetpack Compose (Material 3)** inspired by Duolingo's word-pick mechanics. The curriculum is based on the **Spoken English Guru** practice book.
-
----
-
-## 🌟 Key Features
-
-1. **Duolingo-style Word-Pick Quiz**:
-   - **Sentence Prompt**: Displays Hindi sentence in bold with Roman transliteration.
-   - **Interactive Audio**:
-     - 🔊 **Normal Speed Audio (1.0x)**: Clean English TTS pronunciation.
-     - 🐢 **Turtle Slow Speed (0.6x)**: Slow and deliberate enunciation for beginners.
-     - 💡 **Vocabulary Hints**: Instant contextual hints for difficult words.
-   - **Word Bank & Slot**:
-     - Shuffled word tiles with 2–4 smart distractors.
-     - Tap word tiles to place them into the sentence slot; tap to remove.
-     - Visual ghost placeholders in the bank for active words.
-   - **Instant Feedback**:
-     - Green celebration banner with audio chime on correct answer.
-     - Red corrective banner showing the exact solution on error.
-     - Minimalist mode: No punishing hearts or life limits.
-   - **Flexible Checking**:
-     - Strips punctuation (`.`, `?`, `!`, `,`) automatically.
-     - Accepts valid alternative translations (e.g., Sentence 91 accepts both *"This isn't a good time"* and *"This time is not good"*).
-
-2. **Full Curriculum (Lessons 1 to 40)**:
-   - **Lesson 1: Use of This, That, These & Those** is fully loaded with all **101 practice sentences**.
-   - Lessons 2 to 40 are listed from the ebook index and ready for future content.
-
-3. **Smart Progress & Mistake Review**:
-   - Auto-resumes from the last uncompleted question.
-   - Questions answered incorrectly are flagged for targeted review in the **"Revise Mistakes"** section.
-
-4. **Room SQLite Local Database & In-App Importer**:
-   - Bundled with `lessons_seed.json` in assets for offline launch.
-   - Includes an in-app **Manage & Import** screen allowing users to easily paste JSON data for Lessons 2–40 without reinstalling the app.
-
-5. **Dynamic Theming & Offline Sounds**:
-   - Vibrant Duolingo Green (`#58CC02`) Light Theme + OLED Dark Mode.
-   - 100% offline audio chime synthesis using Android's native PCM `AudioTrack`.
+# Spoken English Guru: English Bolna Sikhein
+### Full-Fledged Modern Android Application (Built from Scratch)
 
 ---
 
-## 🏗️ Project Architecture
+## 📱 Overview
+
+**Spoken English Guru** is a comprehensive, offline-first Android learning application built using **Modern Native Android (Kotlin, Jetpack Compose, Material 3, Room SQLite)**. It transforms the extracted eBook curriculum (`Spoken_English_Guru_extraction_complete.zip`) into an interactive, gamified ed-tech app.
+
+---
+
+## 📊 Extracted Curriculum & Database Statistics
+
+- **40 Complete Lessons** (Demonstratives, Tenses, Modals, Passive Voice, Conditionals, Prepositions, Causative Verbs, Conjunctions, Direct/Indirect Speech, etc.)
+- **5,580 Bilingual Practice Sentences** (Hindi Prompt + Romanized Hint + English Answer)
+- **1,234 Multiple Choice Questions (MCQs)** spread across 67 quizzes with verified answer keys
+- **746 Vocabulary Items** (3-Forms of Verbs V1/V2/V3, Antonyms, Synonyms, Adjective/Adverb Degrees)
+- **100% Offline-First**: Pre-populated SQLite Room Database (`spoken_english.db`) packaged into app assets for zero latency and no internet requirement.
+
+---
+
+## 🌟 Key Features & 4-Pillar Architecture
+
+### Pillar 1: Concept Lessons & Notes
+- Categorized browser for all 40 lessons (Foundation, Grammar Mechanics, Vocabulary, Applied Practice, Quizzes).
+- Real-time search across all lessons.
+- Lesson detail view featuring full bilingual sentence pairs with bookmarking and individual pronunciation.
+
+### Pillar 2: Sentence Translation Lab
+- **Smart Flashcards**: Flip Hindi sentences to reveal English answers with smooth transitions, TTS pronunciation audio, and "Mastered" vs "Need Practice" tracking.
+- **Word Jumble / Sentence Puzzle**: Interactive game where words are scattered and users tap word chips to construct the grammatically correct sentence. Immediate audio/visual validation.
+- **Starred Favorites**: Practice only sentences you've bookmarked during your lessons.
+
+### Pillar 3: 1500+ MCQ Quizzes & Test Series
+- **67 Topic Quizzes**: Instant feedback on answer selection (Green for correct, Red for wrong, automatic explanation highlight).
+- **Mistake Bank**: Any question answered incorrectly is automatically captured in a dedicated "Mistake Bank" so users can re-test their weak areas.
+- **Quiz Scorecards**: Comprehensive completion statistics, percentages, and performance evaluation.
+
+### Pillar 4: Vocab Vault
+- Searchable directory of Verbs (V1, V2, V3), Antonyms (Opposites), Synonyms, and Degrees of Comparison.
+- Instant search by English word or Hindi meaning.
+- Text-to-Speech pronunciation button for every vocabulary item.
+
+---
+
+## 🛠️ Technology Stack
+
+- **UI**: 100% Declarative UI with Jetpack Compose & Material 3
+- **Language**: Kotlin 1.9.24 / JVM 17
+- **Database**: Android Jetpack Room 2.6.1 (Pre-populated SQLite)
+- **Architecture**: MVVM + Repository Pattern + Clean Architecture
+- **Speech Engine**: Native Android `TextToSpeech` API (English US/UK)
+- **Navigation**: Jetpack Compose Navigation (`NavHost`)
+- **Build System**: Gradle 8.9 + Android Gradle Plugin 8.4.2 (Compile SDK 34, Min SDK 26)
+
+---
+
+## 🚀 How to Install & Run
+
+### 1. Direct APK Installation
+The debug APK is compiled and ready in the project directory:
+- [SpokenEnglishGuru.apk](file:///home/ubuntu/Downloads/New%20Folder/SpokenEnglishGuru.apk) (16 MB)
+- Transfer `SpokenEnglishGuru.apk` to any Android phone (Android 8.0+) and install.
+- Or install via ADB:
+  ```bash
+  adb install SpokenEnglishGuru.apk
+  ```
+
+### 2. Opening in Android Studio
+1. Open Android Studio.
+2. Select **Open** and select the folder:
+   `/home/ubuntu/Downloads/New Folder/SpokenEnglishGuruApp`
+3. Let Gradle sync and press **Run** (`Shift + F10`) to launch on emulator or connected phone.
+
+---
+
+## 📁 Project Structure
 
 ```
-app/src/main/
-├── assets/
-│   └── lessons_seed.json             # Seed data with all 40 lessons & 101 Lesson 1 sentences
-├── java/com/spokenguru/app/
-│   ├── MainActivity.kt               # Navigation Host & Entry point
-│   ├── audio/
-│   │   ├── SoundEffectManager.kt     # Native PCM audio chimes (success, error, tile click)
-│   │   └── TtsManager.kt             # Android Text-To-Speech with dual speed (1.0x & 0.6x)
-│   ├── data/
-│   │   ├── AppDatabase.kt            # Room Database
-│   │   ├── model/
-│   │   │   ├── LessonEntity.kt       # Lesson table definition
-│   │   │   └── QuestionEntity.kt     # Question table definition
-│   │   ├── dao/
-│   │   │   ├── LessonDao.kt          # Lesson queries & progress updates
-│   │   │   └── QuestionDao.kt        # Question queries & mistake flags
-│   │   └── repository/
-│   │       └── LessonRepository.kt   # Asset seeder & JSON importer
-│   └── ui/
-│       ├── components/
-│       │   ├── DuoButton.kt          # Duolingo 3D pressed-state button
-│       │   └── WordChip.kt           # Word tile chips & placeholders
-│       ├── screens/
-│       │   ├── LessonListScreen.kt   # All 40 lessons list & progress tracker
-│       │   ├── WordPickScreen.kt     # Core Duolingo-style word-pick quiz
-│       │   ├── MistakeReviewScreen.kt# Targeted mistake revision mode
-│       │   └── ImportLessonScreen.kt # In-app JSON importer & database manager
-│       └── theme/
-│           ├── Color.kt              # Duolingo color palette
-│           ├── Theme.kt              # Dynamic Light & Dark Material3 themes
-│           └── Type.kt               # Typography styles
+SpokenEnglishGuruApp/
+├── app/
+│   ├── build.gradle.kts
+│   └── src/main/
+│       ├── AndroidManifest.xml
+│       ├── assets/database/spoken_english.db
+│       └── java/com/spokenenglishguru/app/
+│           ├── MainActivity.kt
+│           ├── SpokenEnglishApp.kt
+│           ├── data/
+│           │   ├── db/
+│           │   │   ├── AppDatabase.kt
+│           │   │   ├── dao/
+│           │   │   │   ├── LessonDao.kt
+│           │   │   │   ├── SentencePracticeDao.kt
+│           │   │   │   ├── McqQuestionDao.kt
+│           │   │   │   ├── VocabDao.kt
+│           │   │   │   └── ProgressDao.kt
+│           │   │   └── entity/
+│           │   └── repository/
+│           ├── ui/
+│           │   ├── components/ (BottomNavBar, AppTopBar)
+│           │   ├── navigation/ (Screen routes)
+│           │   ├── theme/ (Color, Theme, Type)
+│           │   └── screens/
+│           │       ├── home/ (HomeScreen, HomeViewModel)
+│           │       ├── lessons/ (LessonsScreen, LessonDetailScreen, LessonsViewModel)
+│           │       ├── practice/ (PracticeScreen, FlashcardPracticeScreen, WordJumblePracticeScreen, PracticeViewModel)
+│           │       ├── quiz/ (QuizzesScreen, QuizPlayScreen, MistakeBankScreen, QuizViewModel)
+│           │       └── vocab/ (VocabScreen, VocabViewModel)
+│           └── util/ (TextToSpeechManager.kt)
 ```
-
----
-
-## 🚀 How to Build and Run
-
-1. **Build Debug APK**:
-   ```powershell
-   .\gradlew.bat assembleDebug
-   ```
-2. **Output APK Location**:
-   `app/build/outputs/apk/debug/app-debug.apk`
-
-3. **Install to Connected Android Device**:
-   ```powershell
-   adb install app\build\outputs\apk\debug\app-debug.apk
-   ```

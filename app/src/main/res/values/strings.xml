@@ -1,3 +1,4 @@
 <resources>
-    <string name="app_name">Spoken Guru</string>
+    <string name="app_name">Spoken English Guru</string>
+    <string name="app_subtitle">English Bolna Sikhein</string>
 </resources>

@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "SpokenGuru"
+rootProject.name = "SpokenEnglishGuruApp"
 include(":app")
