@@ -24,3 +24,8 @@ app/build/outputs/apk/*
 # Ignore everything in debug except .apk files
 app/build/outputs/apk/debug/*
 !app/build/outputs/apk/debug/*.apk
+
+# Python
+__pycache__/
+*.pyc
+

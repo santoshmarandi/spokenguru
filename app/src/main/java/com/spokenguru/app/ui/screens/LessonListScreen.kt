@@ -92,7 +92,7 @@ fun LessonListScreen(
     val lessons by repository.allLessons.collectAsState(initial = emptyList())
     val mistakesCount by repository.mistakesCount.collectAsState(initial = 0)
     val isDark = isAppDarkTheme()
-    var showAllChapters by remember { mutableStateOf(false) }
+    var showAllChapters by remember { mutableStateOf(true) }
     var showThemeDialog by remember { mutableStateOf(false) }
 
     Scaffold(

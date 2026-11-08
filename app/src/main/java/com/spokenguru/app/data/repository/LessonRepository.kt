@@ -13,7 +13,8 @@ import kotlinx.coroutines.withContext
 data class SeedData(
     val version: Int,
     val lessons: List<SeedLesson>,
-    val lesson1Questions: List<SeedQuestion>
+    val questions: List<SeedQuestion>? = null,
+    val lesson1Questions: List<SeedQuestion>? = null
 )
 
 data class SeedLesson(
@@ -27,11 +28,14 @@ data class SeedLesson(
 data class SeedQuestion(
     val questionNumber: Int,
     val lessonNumber: Int,
+    val questionType: String? = null,
     val hindiText: String,
     val romanText: String,
     val primaryAnswer: String,
     val alternateAnswers: List<String>?,
     val distractors: List<String>?,
+    val options: List<String>? = null,
+    val matchPairs: Map<String, String>? = null,
     val hint: String?,
     val ruleTitle: String?,
     val grammarRule: String?,
@@ -55,7 +59,7 @@ class LessonRepository(
     suspend fun ensureDataSeeded() = withContext(Dispatchers.IO) {
         val count = lessonDao.getLessonCount()
         val questionsCount = questionDao.getTotalQuestionsCount()
-        if (count == 0 || questionsCount == 0) {
+        if (count < 40 || questionsCount < 8200) {
             seedFromAssets()
         }
     }
@@ -77,26 +81,33 @@ class LessonRepository(
             }
             lessonDao.insertLessons(lessonsToInsert)
 
-            val questionsToInsert = seedData.lesson1Questions.map {
+            val allQuestions = seedData.questions ?: seedData.lesson1Questions ?: emptyList()
+            val questionsToInsert = allQuestions.map {
                 QuestionEntity(
                     lessonNumber = it.lessonNumber,
                     questionNumber = it.questionNumber,
+                    questionType = it.questionType ?: "SENTENCE_BUILDER",
                     hindiText = it.hindiText,
                     romanText = it.romanText,
                     primaryAnswer = it.primaryAnswer,
                     alternateAnswersJson = gson.toJson(it.alternateAnswers ?: emptyList<String>()),
                     distractorsJson = gson.toJson(it.distractors ?: emptyList<String>()),
+                    optionsJson = gson.toJson(it.options ?: it.distractors ?: emptyList<String>()),
+                    matchPairsJson = gson.toJson(it.matchPairs ?: emptyMap<String, String>()),
                     hint = it.hint ?: "",
                     ruleTitle = it.ruleTitle ?: "Guru Grammar Rule",
                     grammarRule = it.grammarRule ?: "",
-                    tagKeyword = it.tagKeyword ?: "Demonstratives",
-                    categoryTag = it.categoryTag ?: "Distance Concept",
+                    tagKeyword = it.tagKeyword ?: "Lesson ${it.lessonNumber}",
+                    categoryTag = it.categoryTag ?: "Practice Drill",
                     wordGlossesJson = gson.toJson(it.wordGlosses ?: emptyMap<String, String>()),
                     isCompleted = false,
                     isMistake = false
                 )
             }
-            questionDao.insertQuestions(questionsToInsert)
+            // Chunked insertion to safely stay within SQLite parameter limits
+            questionsToInsert.chunked(300).forEach { chunk ->
+                questionDao.insertQuestions(chunk)
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }

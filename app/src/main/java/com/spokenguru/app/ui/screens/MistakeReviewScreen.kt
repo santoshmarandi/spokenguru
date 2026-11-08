@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
@@ -36,11 +38,14 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -74,6 +79,7 @@ import com.spokenguru.app.ui.components.BankWordTile
 import com.spokenguru.app.ui.components.GuruButton
 import com.spokenguru.app.ui.components.GuruButtonVariant
 import com.spokenguru.app.ui.components.SlotWordChip
+import com.spokenguru.app.ui.theme.GuruAmber
 import com.spokenguru.app.ui.theme.GuruBg
 import com.spokenguru.app.ui.theme.GuruCardBorder
 import com.spokenguru.app.ui.theme.GuruDarkBg
@@ -112,6 +118,7 @@ fun MistakeReviewScreen(
     val mistakes by repository.allMistakes.collectAsState(initial = emptyList())
     var currentIndex by remember { mutableIntStateOf(0) }
     var answerState by remember { mutableStateOf(AnswerState.IDLE) }
+    var lastSubmittedAnswer by remember { mutableStateOf("") }
 
     val bankWords = remember { mutableStateListOf<BankWordItem>() }
     val selectedWords = remember { mutableStateListOf<BankWordItem>() }
@@ -197,6 +204,36 @@ fun MistakeReviewScreen(
 
     val currentQuestion = if (currentIndex < mistakes.size) mistakes[currentIndex] else mistakes.first()
 
+    var selectedMcqOption by remember(currentQuestion.id) { mutableStateOf<String?>(null) }
+    var selectedBlankWord by remember(currentQuestion.id) { mutableStateOf<String?>(null) }
+    var selectedCorrection by remember(currentQuestion.id) { mutableStateOf<String?>(null) }
+
+    val parsedOptions = remember(currentQuestion.id) {
+        try {
+            val listType = object : TypeToken<List<String>>() {}.type
+            gson.fromJson<List<String>>(currentQuestion.optionsJson, listType) ?: emptyList()
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    val parsedMatchPairs = remember(currentQuestion.id) {
+        try {
+            val mapType = object : TypeToken<Map<String, String>>() {}.type
+            gson.fromJson<Map<String, String>>(currentQuestion.matchPairsJson, mapType) ?: emptyMap()
+        } catch (e: Exception) {
+            emptyMap()
+        }
+    }
+
+    val hasAnswerInput = when (currentQuestion.questionType) {
+        "WORD_MATCH" -> false
+        "MCQ" -> !selectedMcqOption.isNullOrBlank()
+        "FILL_BLANK" -> !selectedBlankWord.isNullOrBlank()
+        "SENTENCE_CORRECTION" -> !selectedCorrection.isNullOrBlank()
+        else -> selectedWords.isNotEmpty()
+    }
+
     Scaffold(
         containerColor = if (isDark) GuruDarkBg else GuruBg,
         topBar = {
@@ -218,12 +255,28 @@ fun MistakeReviewScreen(
                     )
                 }
 
+                // Clean Animated Progress Bar with Prev / Next arrows
                 Row(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    IconButton(
+                        onClick = { if (currentIndex > 0) currentIndex-- },
+                        enabled = currentIndex > 0,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Previous Mistake",
+                            tint = if (currentIndex > 0) GuruRed else GuruTextSubtle.copy(alpha = 0.25f),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(4.dp))
+
                     LinearProgressIndicator(
                         progress = { (currentIndex + 1).toFloat() / mistakes.size.toFloat() },
                         modifier = Modifier
@@ -233,7 +286,7 @@ fun MistakeReviewScreen(
                         color = GuruRed,
                         trackColor = if (isDark) Color(0xFF1E293B) else Color(0xFFE5E7EB)
                     )
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "${currentIndex + 1}/${mistakes.size}",
                         fontFamily = FontFamily.Default,
@@ -241,11 +294,31 @@ fun MistakeReviewScreen(
                         fontWeight = FontWeight.SemiBold,
                         color = if (isDark) GuruDarkTextMuted else GuruTextMuted
                     )
+
+                    Spacer(modifier = Modifier.width(4.dp))
+
+                    IconButton(
+                        onClick = {
+                            if (currentIndex < mistakes.size - 1) {
+                                currentIndex++
+                            } else {
+                                onNavigateBack()
+                            }
+                        },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = "Next Mistake",
+                            tint = GuruRed,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
             }
         },
         bottomBar = {
-            if (answerState == AnswerState.IDLE) {
+            if (answerState == AnswerState.IDLE && currentQuestion.questionType != "WORD_MATCH") {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -259,15 +332,28 @@ fun MistakeReviewScreen(
                         GuruButton(
                             text = "Check Correction",
                             icon = Icons.Default.Check,
-                            enabled = selectedWords.isNotEmpty(),
+                            enabled = hasAnswerInput,
                             onClick = {
-                                val userSentence = selectedWords.joinToString(" ") { it.word }
-                                val isCorrect = checkAnswer(
-                                    userSentence = userSentence,
-                                    primary = currentQuestion.primaryAnswer,
-                                    alternatesJson = currentQuestion.alternateAnswersJson,
-                                    gson = gson
-                                )
+                                val userSentence = when (currentQuestion.questionType) {
+                                    "MCQ" -> selectedMcqOption ?: ""
+                                    "FILL_BLANK" -> selectedBlankWord ?: ""
+                                    "SENTENCE_CORRECTION" -> selectedCorrection ?: ""
+                                    else -> selectedWords.joinToString(" ") { it.word }
+                                }
+                                lastSubmittedAnswer = userSentence
+                                val isCorrect = when (currentQuestion.questionType) {
+                                    "MCQ", "FILL_BLANK", "SENTENCE_CORRECTION" -> {
+                                        userSentence.trim().equals(currentQuestion.primaryAnswer.trim(), ignoreCase = true)
+                                    }
+                                    else -> {
+                                        checkAnswer(
+                                            userSentence = userSentence,
+                                            primary = currentQuestion.primaryAnswer,
+                                            alternatesJson = currentQuestion.alternateAnswersJson,
+                                            gson = gson
+                                        )
+                                    }
+                                }
 
                                 if (isCorrect) {
                                     answerState = AnswerState.CORRECT
@@ -332,113 +418,198 @@ fun MistakeReviewScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Answer Slot Area
-                val slotShape = RoundedCornerShape(16.dp)
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .defaultMinSize(minHeight = 100.dp)
-                        .clip(slotShape)
-                        .background(if (isDark) GuruDarkSurface else Color.White)
-                        .border(
-                            width = 1.dp,
-                            color = if (isDark) GuruDarkCardBorder else GuruCardBorder,
-                            shape = slotShape
+                when (currentQuestion.questionType) {
+                    "WORD_MATCH" -> {
+                        WordMatchQuizView(
+                            matchPairs = parsedMatchPairs,
+                            isDark = isDark,
+                            onMatchSuccess = {
+                                lastSubmittedAnswer = currentQuestion.primaryAnswer
+                                answerState = AnswerState.CORRECT
+                                SoundEffectManager.playSuccess()
+                                ttsManager.speak(currentQuestion.primaryAnswer)
+                                scope.launch {
+                                    repository.markMistake(currentQuestion.id, false)
+                                }
+                            },
+                            onMismatch = { userLeft, userRight, expectedRight ->
+                                lastSubmittedAnswer = "$userLeft ↔ $userRight"
+                                answerState = AnswerState.INCORRECT
+                                SoundEffectManager.playError()
+                            }
                         )
-                        .padding(14.dp),
-                    contentAlignment = Alignment.TopStart
-                ) {
-                    if (selectedWords.isEmpty()) {
+                    }
+                    "MCQ" -> {
+                        McqQuizView(
+                            options = parsedOptions,
+                            selectedOption = selectedMcqOption,
+                            onOptionSelected = {
+                                if (answerState == AnswerState.IDLE) {
+                                    selectedMcqOption = it
+                                    SoundEffectManager.playClick()
+                                }
+                            },
+                            isDark = isDark
+                        )
+                    }
+                    "FILL_BLANK" -> {
+                        val sentenceWithBlank = remember(currentQuestion.id) {
+                            val altsList: List<String> = try {
+                                gson.fromJson(currentQuestion.alternateAnswersJson, object : TypeToken<List<String>>() {}.type) ?: emptyList()
+                            } catch (e: Exception) { emptyList() }
+                            val fromAlt = altsList.firstOrNull { it.contains("____") }
+                            if (!fromAlt.isNullOrBlank()) {
+                                fromAlt
+                            } else if (currentQuestion.hindiText.contains("____")) {
+                                currentQuestion.hindiText.substringAfter("\n(").substringBefore(")")
+                            } else if (currentQuestion.primaryAnswer.contains(" ")) {
+                                val firstW = currentQuestion.primaryAnswer.split(" ")[0]
+                                currentQuestion.primaryAnswer.replaceFirst(firstW, "____")
+                            } else {
+                                "____"
+                            }
+                        }
+                        FillBlankQuizView(
+                            sentenceWithBlank = sentenceWithBlank,
+                            options = parsedOptions,
+                            selectedWord = selectedBlankWord,
+                            onWordSelected = {
+                                if (answerState == AnswerState.IDLE) {
+                                    selectedBlankWord = it
+                                    SoundEffectManager.playClick()
+                                }
+                            },
+                            isDark = isDark
+                        )
+                    }
+                    "SENTENCE_CORRECTION" -> {
+                        val incorrectSent = remember(currentQuestion.id) {
+                            val text = currentQuestion.hindiText
+                            if (text.contains("\"")) text.substringAfter("\"").substringBefore("\"") else text
+                        }
+                        SentenceCorrectionView(
+                            incorrectSentence = incorrectSent,
+                            options = parsedOptions,
+                            selectedOption = selectedCorrection,
+                            onOptionSelected = {
+                                if (answerState == AnswerState.IDLE) {
+                                    selectedCorrection = it
+                                    SoundEffectManager.playClick()
+                                }
+                            },
+                            isDark = isDark
+                        )
+                    }
+                    else -> {
+                        // Answer Slot Area
+                        val slotShape = RoundedCornerShape(16.dp)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(72.dp),
-                            contentAlignment = Alignment.Center
+                                .defaultMinSize(minHeight = 100.dp)
+                                .clip(slotShape)
+                                .background(if (isDark) GuruDarkSurface else Color.White)
+                                .border(
+                                    width = 1.dp,
+                                    color = if (isDark) GuruDarkCardBorder else GuruCardBorder,
+                                    shape = slotShape
+                                )
+                                .padding(14.dp),
+                            contentAlignment = Alignment.TopStart
                         ) {
-                            Text(
-                                text = "Tap words below in correct order",
-                                fontFamily = FontFamily.Default,
-                                fontSize = 14.sp,
-                                color = GuruTextSubtle
-                            )
+                            if (selectedWords.isEmpty()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(72.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "Tap words below in correct order",
+                                        fontFamily = FontFamily.Default,
+                                        fontSize = 14.sp,
+                                        color = GuruTextSubtle
+                                    )
+                                }
+                            } else {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.End
+                                    ) {
+                                        IconButton(
+                                            onClick = {
+                                                if (selectedWords.isNotEmpty()) {
+                                                    selectedWords.removeAt(selectedWords.size - 1)
+                                                }
+                                            },
+                                            modifier = Modifier.size(24.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.AutoMirrored.Filled.Undo,
+                                                contentDescription = "Undo",
+                                                tint = GuruTextSubtle,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        IconButton(
+                                            onClick = { selectedWords.clear() },
+                                            modifier = Modifier.size(24.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Clear,
+                                                contentDescription = "Clear",
+                                                tint = GuruTextSubtle,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(4.dp))
+
+                                    FlowRow(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        selectedWords.forEach { item ->
+                                            SlotWordChip(
+                                                text = item.word,
+                                                onRemove = {
+                                                    if (answerState == AnswerState.IDLE) {
+                                                        SoundEffectManager.playClick()
+                                                        selectedWords.remove(item)
+                                                    }
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
-                    } else {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.End
-                            ) {
-                                IconButton(
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        // Word Bank
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            bankWords.forEach { item ->
+                                val isSelected = selectedWords.any { it.id == item.id }
+                                BankWordTile(
+                                    word = item.word,
+                                    isSelected = isSelected,
                                     onClick = {
-                                        if (selectedWords.isNotEmpty()) {
-                                            selectedWords.removeAt(selectedWords.size - 1)
+                                        if (answerState == AnswerState.IDLE && !isSelected) {
+                                            SoundEffectManager.playClick()
+                                            selectedWords.add(item)
                                         }
-                                    },
-                                    modifier = Modifier.size(24.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.Undo,
-                                        contentDescription = "Undo",
-                                        tint = GuruTextSubtle,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(4.dp))
-                                IconButton(
-                                    onClick = { selectedWords.clear() },
-                                    modifier = Modifier.size(24.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Clear,
-                                        contentDescription = "Clear",
-                                        tint = GuruTextSubtle,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(4.dp))
-
-                            FlowRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                selectedWords.forEach { item ->
-                                    SlotWordChip(
-                                        text = item.word,
-                                        onRemove = {
-                                            if (answerState == AnswerState.IDLE) {
-                                                SoundEffectManager.playClick()
-                                                selectedWords.remove(item)
-                                            }
-                                        }
-                                    )
-                                }
+                                    }
+                                )
                             }
                         }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Word Bank
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    bankWords.forEach { item ->
-                        val isSelected = selectedWords.any { it.id == item.id }
-                        BankWordTile(
-                            word = item.word,
-                            isSelected = isSelected,
-                            onClick = {
-                                if (answerState == AnswerState.IDLE && !isSelected) {
-                                    SoundEffectManager.playClick()
-                                    selectedWords.add(item)
-                                }
-                            }
-                        )
                     }
                 }
 
@@ -491,14 +662,71 @@ fun MistakeReviewScreen(
                         }
 
                         if (answerState == AnswerState.INCORRECT) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            val analysis = remember(lastSubmittedAnswer, currentQuestion) {
+                                MistakeAnalyzer.analyze(lastSubmittedAnswer, currentQuestion.primaryAnswer, currentQuestion.grammarRule)
+                            }
+
+                            if (lastSubmittedAnswer.isNotBlank()) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "आपका उत्तर: ",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = GuruRedDark
+                                    )
+                                    Text(
+                                        text = "\"$lastSubmittedAnswer\"",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (isDark) Color(0xFFFFB4AB) else Color(0xFFBA1A1A)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isDark) Color(0xFF381B21) else Color(0xFFFFEBEB))
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.Top) {
+                                    Icon(
+                                        imageVector = Icons.Default.Lightbulb,
+                                        contentDescription = null,
+                                        tint = GuruAmber,
+                                        modifier = Modifier.size(15.dp).padding(top = 2.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = analysis.explanation,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = if (isDark) GuruDarkText else GuruTextDark
+                                    )
+                                }
+                            }
+
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "Correct: \"${currentQuestion.primaryAnswer}\"",
+                                text = "सही उत्तर: \"${currentQuestion.primaryAnswer}\"",
                                 fontFamily = FontFamily.Default,
-                                fontWeight = FontWeight.SemiBold,
+                                fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp,
-                                color = if (isDark) GuruDarkText else GuruTextDark
+                                color = GuruMintDark
                             )
+
+                            if (currentQuestion.grammarRule.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "📖 नियम: ${currentQuestion.grammarRule}",
+                                    fontSize = 11.sp,
+                                    color = if (isDark) GuruDarkTextMuted else GuruTextMuted,
+                                    lineHeight = 15.sp
+                                )
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))

@@ -780,7 +780,7 @@ fun LessonExerciseReaderView(
                                 }
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = q.tagKeyword.ifBlank { "Demonstratives" },
+                                    text = q.tagKeyword.ifBlank { "Lesson ${q.lessonNumber}" },
                                     fontSize = 12.sp,
                                     color = GuruTextMuted
                                 )

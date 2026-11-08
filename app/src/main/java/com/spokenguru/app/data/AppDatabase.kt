@@ -9,7 +9,7 @@ import com.spokenguru.app.data.dao.QuestionDao
 import com.spokenguru.app.data.model.LessonEntity
 import com.spokenguru.app.data.model.QuestionEntity
 
-@Database(entities = [LessonEntity::class, QuestionEntity::class], version = 2, exportSchema = false)
+@Database(entities = [LessonEntity::class, QuestionEntity::class], version = 7, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun lessonDao(): LessonDao
     abstract fun questionDao(): QuestionDao

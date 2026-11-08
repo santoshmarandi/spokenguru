@@ -25,12 +25,21 @@ An interactive Android application built with **Kotlin** and **Jetpack Compose (
      - Accepts valid alternative translations (e.g., Sentence 91 accepts both *"This isn't a good time"* and *"This time is not good"*).
 
 2. **Full Curriculum (Lessons 1 to 40)**:
-   - **Lesson 1: Use of This, That, These & Those** is fully loaded with all **101 practice sentences**.
-   - Lessons 2 to 40 are listed from the ebook index and ready for future content.
+   - **All 40 Lessons** are fully loaded with **8,207 interactive practice questions** extracted and enriched from the complete Spoken English Guru practice book.
+   - Tailored multi-format interactive curriculum:
+     - 🧱 **`SENTENCE_BUILDER`** (6,526 full sentences): 31 translation chapters (Tenses, Modals, Conditionals, Prepositions, Conjunctions, Voice, Narration, Test Papers, etc.).
+     - 🔄 **`WORD_MATCH`** (251 match rounds / 1,000+ pairs): 6 vocabulary chapters (Verbs V1-V2, Adjective & Adverb degrees, Antonyms, Synonyms, Singular-to-Plural).
+     - ❓ **`MCQ`** (1,204 questions): 1 chapter (Lesson 39: 1500+ MCQs).
+     - ⚠️ **`SENTENCE_CORRECTION`** (196 questions): 1 chapter (Lesson 37: Error Spotting).
+     - 📝 **`FILL_BLANK`** (30 questions): 1 chapter (Lesson 31: Homonyms).
 
-3. **Smart Progress & Mistake Review**:
-   - Auto-resumes from the last uncompleted question.
-   - Questions answered incorrectly are flagged for targeted review in the **"Revise Mistakes"** section.
+3. **Smart Guru Error Feedback & Mistake Analyzer**:
+   - Universal Error Feedback card on incorrect answers showing "आपका उत्तर", "क्या गलती हुई" (Smart mistake reasoning in Hindi), "सही उत्तर", and comprehensive Hindi grammar rules.
+   - Dedicated **"Revise Mistakes"** notebook screen to replay and master previously missed questions.
+
+4. **Sleek Question Navigation**:
+   - Top Bar **`←` (Prev)** and **`→` (Next)** arrow buttons beside the question progress bar for effortless jumping forward and backward.
+   - Full-width, clean **Check Answer** primary action button in the bottom bar.
 
 4. **Room SQLite Local Database & In-App Importer**:
    - Bundled with `lessons_seed.json` in assets for offline launch.

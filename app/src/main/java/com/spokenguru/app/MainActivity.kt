@@ -51,10 +51,12 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val navController = rememberNavController()
                     var currentTab by remember { mutableStateOf(NavTab.HOME) }
+                    val targetLesson = remember { intent?.getIntExtra("lessonNumber", -1) ?: -1 }
+                    val startDest = if (targetLesson > 0) "quiz/$targetLesson" else "home"
 
                     NavHost(
                         navController = navController,
-                        startDestination = "home"
+                        startDestination = startDest
                     ) {
                         composable("home") {
                             currentTab = NavTab.HOME
