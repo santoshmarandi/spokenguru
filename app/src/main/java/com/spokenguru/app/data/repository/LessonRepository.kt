@@ -2,8 +2,8 @@ package com.spokenguru.app.data.repository
 
 import android.content.Context
 import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import com.spokenguru.app.data.AppDatabase
+import com.spokenguru.app.data.dao.QuestionQuizContentUpdate
 import com.spokenguru.app.data.model.LessonEntity
 import com.spokenguru.app.data.model.QuestionEntity
 import kotlinx.coroutines.Dispatchers
@@ -56,11 +56,47 @@ class LessonRepository(
     val allMistakes: Flow<List<QuestionEntity>> = questionDao.getAllMistakes()
     val mistakesCount: Flow<Int> = questionDao.getMistakesCount()
 
+    companion object {
+        private const val SEED_PREFS = "spokenguru_seed_meta"
+        private const val KEY_SEED_VERSION = "seed_version"
+        private const val EXPECTED_SEED_VERSION = 6
+    }
+
     suspend fun ensureDataSeeded() = withContext(Dispatchers.IO) {
         val count = lessonDao.getLessonCount()
         val questionsCount = questionDao.getTotalQuestionsCount()
+        val seedPrefs = context.applicationContext.getSharedPreferences(SEED_PREFS, Context.MODE_PRIVATE)
+        val savedSeedVersion = seedPrefs.getInt(KEY_SEED_VERSION, 0)
+
         if (count < 40 || questionsCount < 8200) {
             seedFromAssets()
+            seedPrefs.edit().putInt(KEY_SEED_VERSION, EXPECTED_SEED_VERSION).apply()
+        } else if (savedSeedVersion < EXPECTED_SEED_VERSION) {
+            refreshSmartDistractorsFromAssets()
+            seedPrefs.edit().putInt(KEY_SEED_VERSION, EXPECTED_SEED_VERSION).apply()
+        }
+    }
+
+    private suspend fun refreshSmartDistractorsFromAssets() {
+        try {
+            val jsonString = context.assets.open("lessons_seed.json").bufferedReader().use { it.readText() }
+            val seedData = gson.fromJson(jsonString, SeedData::class.java)
+            val allQuestions = seedData.questions ?: emptyList()
+            val updates = allQuestions.map {
+                QuestionQuizContentUpdate(
+                    lessonNumber = it.lessonNumber,
+                    questionNumber = it.questionNumber,
+                    primaryAnswer = it.primaryAnswer,
+                    alternateAnswersJson = gson.toJson(it.alternateAnswers ?: emptyList<String>()),
+                    distractorsJson = gson.toJson(it.distractors ?: emptyList<String>()),
+                    optionsJson = gson.toJson(it.options ?: it.distractors ?: emptyList<String>())
+                )
+            }
+            updates.chunked(800).forEach { batch ->
+                questionDao.applyCurriculumRefresh(batch)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
@@ -134,59 +170,5 @@ class LessonRepository(
     suspend fun resetLesson(lessonNumber: Int) = withContext(Dispatchers.IO) {
         questionDao.resetLessonProgress(lessonNumber)
         lessonDao.updateCompletedQuestions(lessonNumber, 0)
-    }
-
-    suspend fun importQuestionsJson(lessonNumber: Int, jsonContent: String): Result<Int> = withContext(Dispatchers.IO) {
-        try {
-            val listType = object : TypeToken<List<SeedQuestion>>() {}.type
-            val imported: List<SeedQuestion> = gson.fromJson(jsonContent, listType)
-            if (imported.isEmpty()) {
-                return@withContext Result.failure(Exception("JSON list is empty"))
-            }
-
-            questionDao.deleteQuestionsForLesson(lessonNumber)
-
-            val entities = imported.mapIndexed { index, q ->
-                QuestionEntity(
-                    lessonNumber = lessonNumber,
-                    questionNumber = if (q.questionNumber > 0) q.questionNumber else (index + 1),
-                    hindiText = q.hindiText,
-                    romanText = q.romanText,
-                    primaryAnswer = q.primaryAnswer,
-                    alternateAnswersJson = gson.toJson(q.alternateAnswers ?: emptyList<String>()),
-                    distractorsJson = gson.toJson(q.distractors ?: emptyList<String>()),
-                    hint = q.hint ?: "",
-                    ruleTitle = q.ruleTitle ?: "Guru Grammar Rule",
-                    grammarRule = q.grammarRule ?: "",
-                    tagKeyword = q.tagKeyword ?: "",
-                    categoryTag = q.categoryTag ?: "",
-                    wordGlossesJson = gson.toJson(q.wordGlosses ?: emptyMap<String, String>()),
-                    isCompleted = false,
-                    isMistake = false
-                )
-            }
-            questionDao.insertQuestions(entities)
-
-            val existing = lessonDao.getLesson(lessonNumber)
-            if (existing != null) {
-                lessonDao.updateLesson(
-                    existing.copy(
-                        totalQuestions = entities.size,
-                        completedQuestions = 0,
-                        isAvailable = true
-                    )
-                )
-            }
-
-            Result.success(entities.size)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    suspend fun getDbStats(): String = withContext(Dispatchers.IO) {
-        val totalLessons = lessonDao.getLessonCount()
-        val totalQuestions = questionDao.getTotalQuestionsCount()
-        "Total Lessons: $totalLessons\nTotal Active Questions: $totalQuestions"
     }
 }

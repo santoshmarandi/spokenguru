@@ -4,9 +4,19 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
 import com.spokenguru.app.data.model.QuestionEntity
 import kotlinx.coroutines.flow.Flow
+
+data class QuestionQuizContentUpdate(
+    val lessonNumber: Int,
+    val questionNumber: Int,
+    val primaryAnswer: String,
+    val alternateAnswersJson: String,
+    val distractorsJson: String,
+    val optionsJson: String
+)
 
 @Dao
 interface QuestionDao {
@@ -42,4 +52,32 @@ interface QuestionDao {
 
     @Query("SELECT COUNT(*) FROM questions")
     suspend fun getTotalQuestionsCount(): Int
+
+    @Query(
+        "UPDATE questions SET primaryAnswer = :primaryAnswer, alternateAnswersJson = :alternateAnswersJson, " +
+            "distractorsJson = :distractorsJson, optionsJson = :optionsJson " +
+            "WHERE lessonNumber = :lessonNumber AND questionNumber = :questionNumber"
+    )
+    suspend fun updateQuestionQuizContent(
+        lessonNumber: Int,
+        questionNumber: Int,
+        primaryAnswer: String,
+        alternateAnswersJson: String,
+        distractorsJson: String,
+        optionsJson: String
+    )
+
+    @Transaction
+    suspend fun applyCurriculumRefresh(updates: List<QuestionQuizContentUpdate>) {
+        updates.forEach { u ->
+            updateQuestionQuizContent(
+                lessonNumber = u.lessonNumber,
+                questionNumber = u.questionNumber,
+                primaryAnswer = u.primaryAnswer,
+                alternateAnswersJson = u.alternateAnswersJson,
+                distractorsJson = u.distractorsJson,
+                optionsJson = u.optionsJson
+            )
+        }
+    }
 }

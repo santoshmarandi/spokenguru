@@ -30,10 +30,14 @@ fun SpokenGuruTheme(
     val colorScheme = if (isDark) {
         darkColorScheme(
             primary = palette.primary,
+            primaryContainer = palette.darkPillBg,
+            onPrimaryContainer = Color.White,
             secondary = GuruBlue,
             tertiary = GuruAmber,
             background = palette.darkBg,
             surface = palette.darkSurface,
+            surfaceVariant = palette.darkSurfaceContainer,
+            outline = palette.darkCardBorder,
             onPrimary = Color.White,
             onSecondary = Color.White,
             onTertiary = Color.Black,
@@ -44,10 +48,14 @@ fun SpokenGuruTheme(
     } else {
         lightColorScheme(
             primary = palette.primary,
+            primaryContainer = palette.primaryLight,
+            onPrimaryContainer = palette.primaryDeep,
             secondary = GuruBlue,
             tertiary = GuruAmber,
             background = palette.lightBg,
             surface = Color.White,
+            surfaceVariant = palette.lightSurfaceContainer,
+            outline = palette.lightCardBorder,
             onPrimary = Color.White,
             onSecondary = Color.White,
             onTertiary = Color.Black,

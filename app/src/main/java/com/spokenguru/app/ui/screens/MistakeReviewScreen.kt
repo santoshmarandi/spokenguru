@@ -1,10 +1,15 @@
 package com.spokenguru.app.ui.screens
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -22,6 +27,7 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -53,6 +59,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -62,38 +69,51 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.spokenguru.app.audio.SoundEffectManager
 import com.spokenguru.app.audio.TtsManager
+import com.spokenguru.app.data.UserPrefs
 import com.spokenguru.app.data.model.QuestionEntity
 import com.spokenguru.app.data.repository.LessonRepository
 import com.spokenguru.app.ui.components.BankWordTile
+import com.spokenguru.app.ui.components.CelebrationBurstOverlay
 import com.spokenguru.app.ui.components.GuruButton
 import com.spokenguru.app.ui.components.GuruButtonVariant
 import com.spokenguru.app.ui.components.SlotWordChip
+import com.spokenguru.app.ui.components.rememberShakeOffset
+import kotlin.math.roundToInt
 import com.spokenguru.app.ui.theme.GuruAmber
 import com.spokenguru.app.ui.theme.GuruBg
 import com.spokenguru.app.ui.theme.GuruCardBorder
+import com.spokenguru.app.ui.theme.GuruCardBorderDashed
 import com.spokenguru.app.ui.theme.GuruDarkBg
 import com.spokenguru.app.ui.theme.GuruDarkCardBorder
 import com.spokenguru.app.ui.theme.GuruDarkSurface
+import com.spokenguru.app.ui.theme.GuruDarkSurfaceContainer
 import com.spokenguru.app.ui.theme.GuruDarkText
 import com.spokenguru.app.ui.theme.GuruDarkTextMuted
 import com.spokenguru.app.ui.theme.GuruMint
 import com.spokenguru.app.ui.theme.GuruMintDark
 import com.spokenguru.app.ui.theme.GuruMintLight
+import com.spokenguru.app.ui.theme.GuruProgressTrack
 import com.spokenguru.app.ui.theme.GuruPurple
 import com.spokenguru.app.ui.theme.GuruRed
 import com.spokenguru.app.ui.theme.GuruRedDark
 import com.spokenguru.app.ui.theme.GuruRedLight
+import com.spokenguru.app.ui.theme.GuruSurfaceContainer
 import com.spokenguru.app.ui.theme.GuruTextDark
 import com.spokenguru.app.ui.theme.GuruTextMuted
 import com.spokenguru.app.ui.theme.GuruTextSubtle
@@ -119,34 +139,44 @@ fun MistakeReviewScreen(
     var currentIndex by remember { mutableIntStateOf(0) }
     var answerState by remember { mutableStateOf(AnswerState.IDLE) }
     var lastSubmittedAnswer by remember { mutableStateOf("") }
+    var celebrationTrigger by remember { mutableIntStateOf(0) }
+    var shakeTrigger by remember { mutableIntStateOf(0) }
 
     val bankWords = remember { mutableStateListOf<BankWordItem>() }
     val selectedWords = remember { mutableStateListOf<BankWordItem>() }
 
-    LaunchedEffect(currentIndex, mistakes) {
+    LaunchedEffect(currentIndex, mistakes, UserPrefs.smartDistractorsEnabled) {
         if (mistakes.isNotEmpty() && currentIndex < mistakes.size) {
             val q = mistakes[currentIndex]
             selectedWords.clear()
             answerState = AnswerState.IDLE
 
             val correctWords = q.primaryAnswer.split("\\s+".toRegex()).map { cleanWordPunctuation(it) }.filter { it.isNotBlank() }
-            val distractorType = object : TypeToken<List<String>>() {}.type
-            val distractors: List<String> = try {
-                gson.fromJson(q.distractorsJson, distractorType) ?: emptyList()
-            } catch (e: Exception) {
-                emptyList()
-            }
 
             val list = mutableListOf<BankWordItem>()
             correctWords.forEachIndexed { idx, w ->
                 list.add(BankWordItem(id = idx, word = w, isDistractor = false))
             }
-            distractors.take(2).forEachIndexed { idx, w ->
-                list.add(BankWordItem(id = 100 + idx, word = w, isDistractor = true))
+            if (UserPrefs.smartDistractorsEnabled) {
+                val targetDistractors = if (correctWords.size <= 2) 2 else 3
+                val smartDistractors = selectSmartDistractors(
+                    primaryAnswer = q.primaryAnswer,
+                    alternateAnswersJson = q.alternateAnswersJson,
+                    distractorsJson = q.distractorsJson,
+                    targetCount = targetDistractors,
+                    gson = gson
+                )
+                smartDistractors.forEachIndexed { idx, w ->
+                    list.add(BankWordItem(id = 100 + idx, word = w, isDistractor = true))
+                }
             }
 
             bankWords.clear()
-            bankWords.addAll(list.shuffled())
+            bankWords.addAll(
+                shuffleAvoidOrder(list) { candidate ->
+                    candidate.map { cleanSentence(it.word) } == correctWords.map { cleanSentence(it) }
+                }
+            )
         }
     }
 
@@ -240,12 +270,12 @@ fun MistakeReviewScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
                     onClick = onNavigateBack,
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(34.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
@@ -255,45 +285,54 @@ fun MistakeReviewScreen(
                     )
                 }
 
-                // Clean Animated Progress Bar with Prev / Next arrows
+                // Clean Animated Progress Bar with Prev / Pill Counter / Next
                 Row(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(horizontal = 8.dp),
+                        .padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(
                         onClick = { if (currentIndex > 0) currentIndex-- },
                         enabled = currentIndex > 0,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(30.dp)
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Previous Mistake",
-                            tint = if (currentIndex > 0) GuruRed else GuruTextSubtle.copy(alpha = 0.25f),
-                            modifier = Modifier.size(16.dp)
+                            tint = if (currentIndex > 0) (if (isDark) GuruDarkText else GuruTextDark) else GuruTextSubtle.copy(alpha = 0.28f),
+                            modifier = Modifier.size(18.dp)
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
 
                     LinearProgressIndicator(
                         progress = { (currentIndex + 1).toFloat() / mistakes.size.toFloat() },
                         modifier = Modifier
                             .weight(1f)
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(3.dp)),
+                            .height(5.dp)
+                            .clip(CircleShape),
                         color = GuruRed,
-                        trackColor = if (isDark) Color(0xFF1E293B) else Color(0xFFE5E7EB)
+                        trackColor = if (isDark) GuruDarkSurfaceContainer else GuruProgressTrack
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "${currentIndex + 1}/${mistakes.size}",
-                        fontFamily = FontFamily.Default,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (isDark) GuruDarkTextMuted else GuruTextMuted
-                    )
+                    Box(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(if (isDark) Color(0xFF3F1D23) else GuruRedLight)
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "${currentIndex + 1}/${mistakes.size}",
+                            fontFamily = FontFamily.Default,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false,
+                            color = GuruRedDark
+                        )
+                    }
 
                     Spacer(modifier = Modifier.width(4.dp))
 
@@ -305,13 +344,13 @@ fun MistakeReviewScreen(
                                 onNavigateBack()
                             }
                         },
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(30.dp)
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                             contentDescription = "Next Mistake",
-                            tint = GuruRed,
-                            modifier = Modifier.size(16.dp)
+                            tint = if (isDark) GuruDarkText else GuruTextDark,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
@@ -319,62 +358,65 @@ fun MistakeReviewScreen(
         },
         bottomBar = {
             if (answerState == AnswerState.IDLE && currentQuestion.questionType != "WORD_MATCH") {
-                Column(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(if (isDark) GuruDarkSurface else Color.White)
+                        .background(if (isDark) GuruDarkBg else GuruBg)
+                        .padding(horizontal = 20.dp, vertical = 14.dp)
                 ) {
-                    HorizontalDivider(
-                        thickness = 0.8.dp,
-                        color = (if (isDark) GuruDarkCardBorder else GuruCardBorder).copy(alpha = 0.6f)
-                    )
-                    Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
-                        GuruButton(
-                            text = "Check Correction",
-                            icon = Icons.Default.Check,
-                            enabled = hasAnswerInput,
-                            onClick = {
-                                val userSentence = when (currentQuestion.questionType) {
-                                    "MCQ" -> selectedMcqOption ?: ""
-                                    "FILL_BLANK" -> selectedBlankWord ?: ""
-                                    "SENTENCE_CORRECTION" -> selectedCorrection ?: ""
-                                    else -> selectedWords.joinToString(" ") { it.word }
+                    GuruButton(
+                        text = "Check Correction",
+                        icon = Icons.Default.Check,
+                        enabled = hasAnswerInput,
+                        onClick = {
+                            val userSentence = when (currentQuestion.questionType) {
+                                "MCQ" -> selectedMcqOption ?: ""
+                                "FILL_BLANK" -> selectedBlankWord ?: ""
+                                "SENTENCE_CORRECTION" -> selectedCorrection ?: ""
+                                else -> selectedWords.joinToString(" ") { it.word }
+                            }
+                            lastSubmittedAnswer = userSentence
+                            val isCorrect = when (currentQuestion.questionType) {
+                                "MCQ", "FILL_BLANK", "SENTENCE_CORRECTION" -> {
+                                    userSentence.trim().equals(currentQuestion.primaryAnswer.trim(), ignoreCase = true)
                                 }
-                                lastSubmittedAnswer = userSentence
-                                val isCorrect = when (currentQuestion.questionType) {
-                                    "MCQ", "FILL_BLANK", "SENTENCE_CORRECTION" -> {
-                                        userSentence.trim().equals(currentQuestion.primaryAnswer.trim(), ignoreCase = true)
-                                    }
-                                    else -> {
-                                        checkAnswer(
-                                            userSentence = userSentence,
-                                            primary = currentQuestion.primaryAnswer,
-                                            alternatesJson = currentQuestion.alternateAnswersJson,
-                                            gson = gson
-                                        )
-                                    }
+                                else -> {
+                                    checkAnswer(
+                                        userSentence = userSentence,
+                                        primary = currentQuestion.primaryAnswer,
+                                        alternatesJson = currentQuestion.alternateAnswersJson,
+                                        gson = gson
+                                    )
                                 }
+                            }
 
-                                if (isCorrect) {
-                                    answerState = AnswerState.CORRECT
-                                    SoundEffectManager.playSuccess()
-                                    ttsManager.speak(currentQuestion.primaryAnswer)
-                                    scope.launch {
-                                        repository.markMistake(currentQuestion.id, false)
-                                    }
-                                } else {
-                                    answerState = AnswerState.INCORRECT
-                                    SoundEffectManager.playError()
+                            if (isCorrect) {
+                                answerState = AnswerState.CORRECT
+                                celebrationTrigger++
+                                SoundEffectManager.playSuccess()
+                                if (UserPrefs.autoPlayAudio) {
+                                    ttsManager.speak(extractSpeakableEnglish(currentQuestion.primaryAnswer))
                                 }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            height = 48.dp
-                        )
-                    }
+                                UserPrefs.recordAnswerCompleted(context, currentQuestion.lessonNumber)
+                                scope.launch {
+                                    repository.markMistake(currentQuestion.id, false)
+                                }
+                            } else {
+                                answerState = AnswerState.INCORRECT
+                                shakeTrigger++
+                                SoundEffectManager.playError()
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        height = 54.dp,
+                        shape = CircleShape
+                    )
                 }
             }
         }
     ) { padding ->
+        val shakeOffset = rememberShakeOffset(shakeTrigger)
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -386,38 +428,70 @@ fun MistakeReviewScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp, vertical = 12.dp)
             ) {
-                Text(
-                    text = "REVISE MISTAKE",
-                    fontFamily = FontFamily.Default,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = GuruRed,
-                    letterSpacing = 0.8.sp
-                )
+                AnimatedContent(
+                    targetState = currentIndex,
+                    transitionSpec = {
+                        val forward = targetState > initialState
+                        if (forward) {
+                            (slideInHorizontally(tween(250)) { it / 4 } + fadeIn(tween(230))) togetherWith
+                                (slideOutHorizontally(tween(190)) { -it / 4 } + fadeOut(tween(170)))
+                        } else {
+                            (slideInHorizontally(tween(250)) { -it / 4 } + fadeIn(tween(230))) togetherWith
+                                (slideOutHorizontally(tween(190)) { it / 4 } + fadeOut(tween(170)))
+                        }
+                    },
+                    label = "mistakePromptSlide"
+                ) { targetIdx ->
+                    val q = mistakes.getOrNull(targetIdx) ?: currentQuestion
+                    val qPromptDisplay = if (q.questionType == "FILL_BLANK" &&
+                        q.hindiText.contains("\n") &&
+                        q.hindiText.contains("____")
+                    ) {
+                        q.hindiText.substringBefore("\n").trim()
+                    } else {
+                        q.hindiText
+                    }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                    Column {
+                        Text(
+                            text = "REVISE MISTAKE",
+                            fontFamily = FontFamily.Default,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = GuruRed,
+                            letterSpacing = 0.8.sp
+                        )
 
-                Text(
-                    text = currentQuestion.hindiText,
-                    fontFamily = FontFamily.Default,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isDark) GuruDarkText else GuruTextDark,
-                    lineHeight = 32.sp
-                )
+                        Spacer(modifier = Modifier.height(8.dp))
 
-                if (currentQuestion.romanText.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = currentQuestion.romanText,
-                        fontFamily = FontFamily.Default,
-                        fontSize = 14.sp,
-                        color = if (isDark) GuruDarkTextMuted else GuruTextMuted
-                    )
+                        Text(
+                            text = qPromptDisplay,
+                            fontFamily = FontFamily.Default,
+                            fontSize = 23.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isDark) GuruDarkText else GuruTextDark,
+                            lineHeight = 31.sp
+                        )
+
+                        if (q.romanText.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = q.romanText,
+                                fontFamily = FontFamily.Default,
+                                fontSize = 14.sp,
+                                color = if (isDark) GuruDarkTextMuted else GuruTextMuted
+                            )
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
 
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .offset { IntOffset(shakeOffset.roundToInt(), 0) }
+                ) {
                 when (currentQuestion.questionType) {
                     "WORD_MATCH" -> {
                         WordMatchQuizView(
@@ -426,15 +500,20 @@ fun MistakeReviewScreen(
                             onMatchSuccess = {
                                 lastSubmittedAnswer = currentQuestion.primaryAnswer
                                 answerState = AnswerState.CORRECT
+                                celebrationTrigger++
                                 SoundEffectManager.playSuccess()
-                                ttsManager.speak(currentQuestion.primaryAnswer)
+                                if (UserPrefs.autoPlayAudio) {
+                                    ttsManager.speak(extractSpeakableEnglish(currentQuestion.primaryAnswer))
+                                }
+                                UserPrefs.recordAnswerCompleted(context, currentQuestion.lessonNumber, xpReward = 15)
                                 scope.launch {
                                     repository.markMistake(currentQuestion.id, false)
                                 }
                             },
-                            onMismatch = { userLeft, userRight, expectedRight ->
+                            onMismatch = { userLeft, userRight, _ ->
                                 lastSubmittedAnswer = "$userLeft ↔ $userRight"
                                 answerState = AnswerState.INCORRECT
+                                shakeTrigger++
                                 SoundEffectManager.playError()
                             }
                         )
@@ -461,7 +540,12 @@ fun MistakeReviewScreen(
                             if (!fromAlt.isNullOrBlank()) {
                                 fromAlt
                             } else if (currentQuestion.hindiText.contains("____")) {
-                                currentQuestion.hindiText.substringAfter("\n(").substringBefore(")")
+                                val afterNl = currentQuestion.hindiText.substringAfter("\n", currentQuestion.hindiText).trim()
+                                if (afterNl.startsWith("(") && afterNl.endsWith(")")) {
+                                    afterNl.removePrefix("(").removeSuffix(")").trim()
+                                } else {
+                                    afterNl
+                                }
                             } else if (currentQuestion.primaryAnswer.contains(" ")) {
                                 val firstW = currentQuestion.primaryAnswer.split(" ")[0]
                                 currentQuestion.primaryAnswer.replaceFirst(firstW, "____")
@@ -501,27 +585,34 @@ fun MistakeReviewScreen(
                         )
                     }
                     else -> {
-                        // Answer Slot Area
-                        val slotShape = RoundedCornerShape(16.dp)
+                        // Answer Slot Area (Dashed Reference Style)
+                        val slotShape = RoundedCornerShape(22.dp)
+                        val dashedBorderColor = if (isDark) GuruDarkCardBorder else GuruCardBorderDashed
+                        val slotSurfaceBg = if (isDark) GuruDarkSurfaceContainer else GuruSurfaceContainer
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .defaultMinSize(minHeight = 100.dp)
+                                .defaultMinSize(minHeight = 140.dp)
                                 .clip(slotShape)
-                                .background(if (isDark) GuruDarkSurface else Color.White)
-                                .border(
-                                    width = 1.dp,
-                                    color = if (isDark) GuruDarkCardBorder else GuruCardBorder,
-                                    shape = slotShape
-                                )
-                                .padding(14.dp),
+                                .background(slotSurfaceBg)
+                                .drawBehind {
+                                    drawRoundRect(
+                                        color = dashedBorderColor,
+                                        style = Stroke(
+                                            width = 1.3.dp.toPx(),
+                                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 10f), 0f)
+                                        ),
+                                        cornerRadius = CornerRadius(22.dp.toPx(), 22.dp.toPx())
+                                    )
+                                }
+                                .padding(16.dp),
                             contentAlignment = Alignment.TopStart
                         ) {
                             if (selectedWords.isEmpty()) {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(72.dp),
+                                        .height(108.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
@@ -573,15 +664,17 @@ fun MistakeReviewScreen(
                                         verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         selectedWords.forEach { item ->
-                                            SlotWordChip(
-                                                text = item.word,
-                                                onRemove = {
-                                                    if (answerState == AnswerState.IDLE) {
-                                                        SoundEffectManager.playClick()
-                                                        selectedWords.remove(item)
+                                            key(item.id) {
+                                                SlotWordChip(
+                                                    text = item.word,
+                                                    onRemove = {
+                                                        if (answerState == AnswerState.IDLE) {
+                                                            SoundEffectManager.playClick()
+                                                            selectedWords.remove(item)
+                                                        }
                                                     }
-                                                }
-                                            )
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -597,20 +690,23 @@ fun MistakeReviewScreen(
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             bankWords.forEach { item ->
-                                val isSelected = selectedWords.any { it.id == item.id }
-                                BankWordTile(
-                                    word = item.word,
-                                    isSelected = isSelected,
-                                    onClick = {
-                                        if (answerState == AnswerState.IDLE && !isSelected) {
-                                            SoundEffectManager.playClick()
-                                            selectedWords.add(item)
+                                key(item.id) {
+                                    val isSelected = selectedWords.any { it.id == item.id }
+                                    BankWordTile(
+                                        word = item.word,
+                                        isSelected = isSelected,
+                                        onClick = {
+                                            if (answerState == AnswerState.IDLE && !isSelected) {
+                                                SoundEffectManager.playClick()
+                                                selectedWords.add(item)
+                                            }
                                         }
-                                    }
-                                )
+                                    )
+                                }
                             }
                         }
                     }
+                }
                 }
 
                 Spacer(modifier = Modifier.height(30.dp))
@@ -777,6 +873,11 @@ fun MistakeReviewScreen(
                     }
                 }
             }
+
+            CelebrationBurstOverlay(
+                triggerCount = celebrationTrigger,
+                xpText = if (currentQuestion.questionType == "WORD_MATCH") "+15 XP" else "+10 XP"
+            )
         }
     }
 }

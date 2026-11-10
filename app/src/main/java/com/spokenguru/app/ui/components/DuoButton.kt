@@ -1,6 +1,10 @@
 package com.spokenguru.app.ui.components
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,7 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -37,12 +42,13 @@ import androidx.compose.ui.unit.sp
 import com.spokenguru.app.ui.theme.GuruCardBorder
 import com.spokenguru.app.ui.theme.GuruDarkCardBorder
 import com.spokenguru.app.ui.theme.GuruDarkSurface
+import com.spokenguru.app.ui.theme.GuruDarkSurfaceContainer
+import com.spokenguru.app.ui.theme.GuruPillBg
 import com.spokenguru.app.ui.theme.GuruPurple
 import com.spokenguru.app.ui.theme.GuruPurpleDeep
 import com.spokenguru.app.ui.theme.GuruPurpleLight
 import com.spokenguru.app.ui.theme.GuruRed
 import com.spokenguru.app.ui.theme.GuruTextDark
-import com.spokenguru.app.ui.theme.GuruTextMuted
 import com.spokenguru.app.ui.theme.GuruTextSubtle
 
 enum class GuruButtonVariant {
@@ -61,20 +67,23 @@ fun GuruButton(
     icon: ImageVector? = null,
     subText: String? = null,
     enabled: Boolean = true,
-    height: Dp = 50.dp
+    height: Dp = 54.dp,
+    shape: Shape = CircleShape
 ) {
     val isDark = isAppDarkTheme()
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(targetValue = if (isPressed && enabled) 0.98f else 1f, label = "btnScale")
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed && enabled) 0.96f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
+        label = "btnScale"
+    )
 
-    val shape = RoundedCornerShape(16.dp)
-
-    val (bg, contentColor, borderColor) = when {
+    val (targetBg, targetContentColor, borderColor) = when {
         !enabled -> Triple(
-            if (isDark) Color(0xFF1E293B) else Color(0xFFF3F4F6),
-            if (isDark) Color(0xFF475569) else Color(0xFF9CA3AF),
-            Color.Transparent
+            if (isDark) GuruDarkSurfaceContainer else GuruPillBg,
+            if (isDark) GuruTextSubtle else GuruTextSubtle,
+            if (isDark) GuruDarkCardBorder.copy(alpha = 0.5f) else GuruCardBorder.copy(alpha = 0.7f)
         )
         variant == GuruButtonVariant.PRIMARY -> Triple(GuruPurple, Color.White, Color.Transparent)
         variant == GuruButtonVariant.SECONDARY -> Triple(
@@ -84,21 +93,25 @@ fun GuruButton(
         )
         variant == GuruButtonVariant.DANGER -> Triple(GuruRed, Color.White, Color.Transparent)
         variant == GuruButtonVariant.MUTED -> Triple(
-            if (isDark) Color(0xFF1E293B) else GuruPurpleLight,
-            GuruPurple,
+            if (isDark) GuruDarkSurfaceContainer else GuruPurpleLight,
+            if (isDark) Color.White else GuruPurpleDeep,
             Color.Transparent
         )
         else -> Triple(GuruPurple, Color.White, Color.Transparent)
     }
+
+    val bg by animateColorAsState(targetValue = targetBg, animationSpec = tween(200), label = "btnBg")
+    val contentColor by animateColorAsState(targetValue = targetContentColor, animationSpec = tween(200), label = "btnFg")
 
     Box(
         modifier = modifier
             .scale(scale)
             .height(height)
             .shadow(
-                elevation = if (enabled && variant == GuruButtonVariant.PRIMARY) 2.dp else 0.dp,
+                elevation = if (enabled && variant == GuruButtonVariant.PRIMARY) 4.dp else 0.dp,
                 shape = shape,
-                ambientColor = Color.Black.copy(alpha = 0.08f)
+                ambientColor = GuruPurple.copy(alpha = 0.25f),
+                spotColor = GuruPurple.copy(alpha = 0.25f)
             )
             .clip(shape)
             .background(bg)
@@ -109,7 +122,7 @@ fun GuruButton(
                 enabled = enabled,
                 onClick = onClick
             )
-            .padding(horizontal = 20.dp),
+            .padding(horizontal = 24.dp),
         contentAlignment = Alignment.Center
     ) {
         Row(

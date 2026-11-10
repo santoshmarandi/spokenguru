@@ -9,8 +9,13 @@ from generate_complete_curriculum import (
     get_lesson_hint_and_rule,
     clean_text,
     clean_word,
-    extract_alts,
-    generate_distractors
+    extract_alts
+)
+from smart_distractor_engine import (
+    BUILTIN_VALID_WORDS,
+    generate_smart_distractors,
+    generate_sentence_correction_options,
+    _morph_siblings
 )
 
 ZIP_PATH = 'Spoken_English_Guru_extraction_complete.zip'
@@ -33,15 +38,17 @@ COMMON_CONJUNCTIONS = [
 
 def make_mcq_options(correct, all_candidates, count=4):
     options = [correct]
-    cands = [c for c in all_candidates if c.strip().lower() != correct.strip().lower()]
-    random.shuffle(cands)
-    for c in cands:
-        if c not in options and len(options) < count:
-            options.append(c)
+    seen = {correct.strip().lower()}
+    for c in all_candidates:
+        cl = c.strip().lower()
+        if cl and cl not in seen and len(options) < count:
+            options.append(c.strip())
+            seen.add(cl)
     while len(options) < count:
-        filler = f"None of the above"
-        if filler not in options:
+        filler = "None of the above"
+        if filler.lower() not in seen:
             options.append(filler)
+            seen.add(filler.lower())
         else:
             options.append(f"Option {len(options)+1}")
     random.shuffle(options)
@@ -53,6 +60,7 @@ def main():
 
     with zipfile.ZipFile(ZIP_PATH, 'r') as z:
         lesson_meta = {}
+        known_english_words = set(BUILTIN_VALID_WORDS)
         with open('app/src/main/assets/lessons_seed.json') as f:
             prev_data = json.load(f)
             for l in prev_data["lessons"]:
@@ -60,6 +68,11 @@ def main():
                     "title": l["title"],
                     "page": l["pageNumber"]
                 }
+            for pq in prev_data.get("questions", []):
+                for w in (pq.get("primaryAnswer", "") + " " + " ".join(pq.get("alternateAnswers") or [])).split():
+                    cw = clean_word(w)
+                    if cw and cw.isalpha():
+                        known_english_words.add(cw)
 
         all_lessons_data = []
         all_questions = []
@@ -183,9 +196,10 @@ def main():
                         q_idx += 1
 
             elif lesson_num == 31: # Homonyms
-                # Homonyms are already fill in the blank with brackets!
+                # Homonyms are fill in the blank with confusable homonyms + related forms
                 pattern = re.compile(r'^\s*(\d+)\.\s+(.*?)(?=\n\s*\d+\.|\n##|\Z)', re.DOTALL | re.MULTILINE)
-                q_idx = 1
+                homonym_entries = []
+                homonym_word_pool = []
                 for m in pattern.finditer(md_content):
                     block = m.group(2)
                     lines = [l.strip() for l in block.splitlines() if l.strip()]
@@ -195,30 +209,46 @@ def main():
                         if re.search(r'\*\*Answer:\*\*', l):
                             ans = re.sub(r'.*?\*\*Answer:\*\*\s*', '', l).strip()
                     if ans and first_line:
-                        # extract bracket choices
                         m_br = re.search(r'\(([^)]+)\)', first_line)
-                        choices = [c.strip() for c in m_br.group(1).split(',')] if m_br else [ans]
-                        blank_sent = re.sub(r'…+|\.{3,}|\([^)]+\)', '____', first_line).strip()
-                        blank_sent = re.sub(r'____\s*____', '____', blank_sent)
-                        opts = make_mcq_options(ans, choices + ["neither", "both"], 4)
-                        r_title, r_rule, r_hint = get_lesson_hint_and_rule(lesson_num, lesson_title, first_line, ans)
-                        lesson_questions.append({
-                            "questionNumber": q_idx,
-                            "lessonNumber": lesson_num,
-                            "questionType": "FILL_BLANK",
-                            "hindiText": f"खाली स्थान में उपयुक्त समध्वनि शब्द (Homonym) भरें:\n{blank_sent}",
-                            "romanText": "Choose appropriate homonym",
-                            "primaryAnswer": ans,
-                            "alternateAnswers": [blank_sent.replace('____', ans)],
-                            "options": opts,
-                            "distractors": [o for o in opts if o != ans],
-                            "hint": r_hint,
-                            "ruleTitle": r_title,
-                            "grammarRule": r_rule,
-                            "tagKeyword": "Homonyms",
-                            "categoryTag": "Fill in the Blank"
-                        })
-                        q_idx += 1
+                        choices = [c.strip() for c in m_br.group(1).split(',') if c.strip()] if m_br else [ans]
+                        homonym_entries.append((first_line, ans, choices))
+                        for c in choices:
+                            if c not in homonym_word_pool:
+                                homonym_word_pool.append(c)
+
+                q_idx = 1
+                for first_line, ans, choices in homonym_entries:
+                    blank_sent = re.sub(r'…+|\.{3,}|\([^)]+\)', '____', first_line).strip()
+                    blank_sent = re.sub(r'____\s*____', '____', blank_sent)
+                    extra_cands = list(choices)
+                    for c in choices:
+                        for sib in _morph_siblings(c.lower(), known_english_words):
+                            if sib not in extra_cands:
+                                extra_cands.append(sib)
+                    # Add phonetically/alphabetically near words from Lesson 31 homonym pool
+                    near_pool = sorted(
+                        [w for w in homonym_word_pool if w.lower() != ans.lower() and w not in extra_cands],
+                        key=lambda w: (0 if w[:2].lower() == ans[:2].lower() else 1, abs(len(w) - len(ans)), w)
+                    )
+                    opts = make_mcq_options(ans, extra_cands + near_pool[:6], 4)
+                    r_title, r_rule, r_hint = get_lesson_hint_and_rule(lesson_num, lesson_title, first_line, ans)
+                    lesson_questions.append({
+                        "questionNumber": q_idx,
+                        "lessonNumber": lesson_num,
+                        "questionType": "FILL_BLANK",
+                        "hindiText": f"खाली स्थान में उपयुक्त समध्वनि शब्द (Homonym) भरें:\n{blank_sent}",
+                        "romanText": "Choose appropriate homonym",
+                        "primaryAnswer": ans,
+                        "alternateAnswers": [blank_sent.replace('____', ans)],
+                        "options": opts,
+                        "distractors": [o for o in opts if o != ans],
+                        "hint": r_hint,
+                        "ruleTitle": r_title,
+                        "grammarRule": r_rule,
+                        "tagKeyword": "Homonyms",
+                        "categoryTag": "Fill in the Blank"
+                    })
+                    q_idx += 1
 
             elif lesson_num in [33, 34]: # Antonyms & Synonyms
                 word_pairs = []
@@ -331,26 +361,20 @@ def main():
                             if '**Answer:**' in l or 'Answer:' in l:
                                 correct = re.sub(r'.*?Answer:\s*', '', l).strip()
                     if incorrect and correct and incorrect != correct:
-                        r_title, r_rule, r_hint = get_lesson_hint_and_rule(lesson_num, lesson_title, incorrect, correct)
-                        # Distractors: generate 3 variants with realistic grammatical flaws
-                        opts = [correct, incorrect]
-                        words = correct.split()
-                        if len(words) > 2:
-                            opts.append(" ".join(words[:-1]))
-                        if len(words) > 3:
-                            opts.append(f"{words[0]} not {(' '.join(words[1:]))}")
-                        while len(opts) < 4:
-                            opts.append(f"{correct} indeed")
-                        opts = opts[:4]
+                        primary_corr, alt_corrs = extract_alts(clean_text(correct))
+                        inc_clean = clean_text(incorrect)
+                        r_title, r_rule, r_hint = get_lesson_hint_and_rule(lesson_num, lesson_title, inc_clean, primary_corr)
+                        opts = generate_sentence_correction_options(primary_corr, inc_clean, known_words=known_english_words)
                         random.shuffle(opts)
 
                         lesson_questions.append({
                             "questionNumber": q_idx,
                             "lessonNumber": lesson_num,
                             "questionType": "SENTENCE_CORRECTION",
-                            "hindiText": f"अशुद्ध वाक्य को पहचानें और सही विकल्प चुनें:\n\"{incorrect}\"",
+                            "hindiText": f"अशुद्ध वाक्य को पहचानें और सही विकल्प चुनें:\n\"{inc_clean}\"",
                             "romanText": "Spot the error and select the correct sentence",
-                            "primaryAnswer": correct,
+                            "primaryAnswer": primary_corr,
+                            "alternateAnswers": alt_corrs,
                             "options": opts,
                             "hint": r_hint,
                             "ruleTitle": r_title,
@@ -403,7 +427,7 @@ def main():
 
             elif lesson_num == 40: # Test papers
                 test_blocks = md_content.split('## Test – ')
-                q_idx = 1
+                raw_test_items = []
                 for tb in test_blocks[1:]:
                     parts = tb.split('Answers')
                     if len(parts) < 2: continue
@@ -417,26 +441,38 @@ def main():
                             m_hr = re.match(r'^(.*?)\s*\((.*?)\)$', raw_prompt)
                             hindi = m_hr.group(1).strip() if m_hr else raw_prompt
                             roman = m_hr.group(2).strip() if m_hr else ""
-                            r_title, r_rule, r_hint = get_lesson_hint_and_rule(lesson_num, lesson_title, hindi, ans)
+                            primary, alts = extract_alts(ans)
+                            if primary:
+                                raw_test_items.append((hindi, roman, primary, alts))
 
-                            # Test papers are full sentences -> SENTENCE_BUILDER
-                            distractors = ["is", "are", "have", "not", "will", "the"]
-                            lesson_questions.append({
-                                "questionNumber": q_idx,
-                                "lessonNumber": lesson_num,
-                                "questionType": "SENTENCE_BUILDER",
-                                "hindiText": hindi,
-                                "romanText": roman,
-                                "primaryAnswer": ans,
-                                "distractors": distractors,
-                                "options": [],
-                                "hint": r_hint,
-                                "ruleTitle": r_title,
-                                "grammarRule": r_rule,
-                                "tagKeyword": "Test Paper",
-                                "categoryTag": "Sentence Builder"
-                            })
-                            q_idx += 1
+                l40_vocab = []
+                for _, _, primary, _ in raw_test_items:
+                    for w in primary.split():
+                        cw = clean_word(w)
+                        if len(cw) >= 3 and cw not in l40_vocab:
+                            l40_vocab.append(cw)
+
+                q_idx = 1
+                for hindi, roman, primary, alts in raw_test_items:
+                    r_title, r_rule, r_hint = get_lesson_hint_and_rule(lesson_num, lesson_title, hindi, primary)
+                    distractors = generate_smart_distractors(primary, alts, l40_vocab, lesson_num=lesson_num, hindi_text=hindi, known_words=known_english_words)
+                    lesson_questions.append({
+                        "questionNumber": q_idx,
+                        "lessonNumber": lesson_num,
+                        "questionType": "SENTENCE_BUILDER",
+                        "hindiText": hindi,
+                        "romanText": roman,
+                        "primaryAnswer": primary,
+                        "alternateAnswers": alts,
+                        "distractors": distractors,
+                        "options": [],
+                        "hint": r_hint,
+                        "ruleTitle": r_title,
+                        "grammarRule": r_rule,
+                        "tagKeyword": "Test Paper",
+                        "categoryTag": "Sentence Builder"
+                    })
+                    q_idx += 1
 
             # =========================================================================
             # ALL OTHER LESSONS: CLOZE / FILL_BLANK, TRANSFORMATION, OR SENTENCE BUILDER
@@ -540,8 +576,8 @@ def main():
                     if not primary: continue
 
                     rule_title, grammar_rule, hint_text = get_lesson_hint_and_rule(lesson_num, lesson_title, hindi, primary)
-                    # All sentence exercises are SENTENCE_BUILDER
-                    distractors = generate_distractors(primary, alts, lesson_vocab)
+                    # All sentence exercises are SENTENCE_BUILDER with smart distractors
+                    distractors = generate_smart_distractors(primary, alts, lesson_vocab, lesson_num=lesson_num, hindi_text=hindi, known_words=known_english_words)
                     lesson_questions.append({
                         "questionNumber": q_idx,
                         "lessonNumber": lesson_num,
@@ -571,7 +607,7 @@ def main():
             print(f"Lesson {lesson_num:02d} ({lesson_title[:30]}): {len(lesson_questions)} questions generated.")
 
         final_data = {
-            "version": 5,
+            "version": 6,
             "lessons": all_lessons_data,
             "questions": all_questions,
             "lesson1Questions": [q for q in all_questions if q.get("lessonNumber") == 1]

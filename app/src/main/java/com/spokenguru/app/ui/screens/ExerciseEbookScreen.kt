@@ -1,6 +1,13 @@
 package com.spokenguru.app.ui.screens
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,19 +30,25 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -58,6 +71,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spokenguru.app.audio.TtsManager
+import com.spokenguru.app.data.UserPrefs
 import com.spokenguru.app.data.model.LessonEntity
 import com.spokenguru.app.data.model.QuestionEntity
 import com.spokenguru.app.data.repository.LessonRepository
@@ -74,6 +88,7 @@ import com.spokenguru.app.ui.theme.GuruCardBorderDashed
 import com.spokenguru.app.ui.theme.GuruDarkBg
 import com.spokenguru.app.ui.theme.GuruDarkCardBorder
 import com.spokenguru.app.ui.theme.GuruDarkSurface
+import com.spokenguru.app.ui.theme.GuruDarkSurfaceContainer
 import com.spokenguru.app.ui.theme.GuruDarkText
 import com.spokenguru.app.ui.theme.GuruDarkTextMuted
 import com.spokenguru.app.ui.theme.GuruMint
@@ -81,7 +96,9 @@ import com.spokenguru.app.ui.theme.GuruMintDark
 import com.spokenguru.app.ui.theme.GuruMintLight
 import com.spokenguru.app.ui.theme.GuruPurple
 import com.spokenguru.app.ui.theme.GuruPurpleBorder
+import com.spokenguru.app.ui.theme.GuruPurpleDeep
 import com.spokenguru.app.ui.theme.GuruPurpleLight
+import com.spokenguru.app.ui.theme.GuruSurfaceContainer
 import com.spokenguru.app.ui.theme.GuruTextDark
 import com.spokenguru.app.ui.theme.GuruTextMuted
 import com.spokenguru.app.ui.theme.GuruTextSubtle
@@ -104,7 +121,7 @@ fun ExerciseEbookScreen(
     var selectedLesson by remember { mutableStateOf<LessonEntity?>(null) }
 
     if (selectedLesson == null) {
-        // VIEW 1: EBOOK LESSONS / CHAPTERS LIST (matching unnamed (6).png)
+        // VIEW 1: EBOOK LESSONS / CHAPTERS LIST
         EbookChaptersListView(
             lessons = lessons,
             currentTab = currentTab,
@@ -112,8 +129,11 @@ fun ExerciseEbookScreen(
             onSelectLesson = { lesson -> selectedLesson = lesson }
         )
     } else {
-        // VIEW 2: LESSON EXERCISE READER (matching unnamed (5).png)
-        // With global top toggle (all show/hide) and individual item show/hide
+        val currentIdx = lessons.indexOfFirst { it.lessonNumber == selectedLesson!!.lessonNumber }
+        val prevLesson = if (currentIdx > 0) lessons[currentIdx - 1] else null
+        val nextLesson = if (currentIdx >= 0 && currentIdx < lessons.size - 1) lessons[currentIdx + 1] else null
+
+        // VIEW 2: LESSON EXERCISE READER
         LessonExerciseReaderView(
             lesson = selectedLesson!!,
             repository = repository,
@@ -121,6 +141,8 @@ fun ExerciseEbookScreen(
             currentTab = currentTab,
             onTabSelected = onTabSelected,
             onBackToChapters = { selectedLesson = null },
+            onPrevLesson = prevLesson?.let { l -> { selectedLesson = l } },
+            onNextLesson = nextLesson?.let { l -> { selectedLesson = l } },
             onStartPractice = { lessonNumber -> onStartPractice(lessonNumber) }
         )
     }
@@ -136,7 +158,22 @@ fun EbookChaptersListView(
     onTabSelected: (NavTab) -> Unit,
     onSelectLesson: (LessonEntity) -> Unit
 ) {
+    val context = LocalContext.current
     val isDark = isAppDarkTheme()
+    var searchQuery by remember { mutableStateOf("") }
+    var bookmarkedOnly by remember { mutableStateOf(false) }
+
+    val totalQuestionsCount = remember(lessons) { lessons.sumOf { it.totalQuestions } }
+    val filteredChapters = remember(lessons, searchQuery, bookmarkedOnly, UserPrefs.bookmarkedLessons) {
+        lessons.filter { lesson ->
+            val q = searchQuery.trim().lowercase()
+            val matchesQuery = q.isBlank() ||
+                lesson.title.lowercase().contains(q) ||
+                "lesson ${lesson.lessonNumber}".contains(q)
+            val matchesBookmark = !bookmarkedOnly || UserPrefs.bookmarkedLessons.contains(lesson.lessonNumber)
+            matchesQuery && matchesBookmark
+        }
+    }
 
     Scaffold(
         bottomBar = {
@@ -229,7 +266,7 @@ fun EbookChaptersListView(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.MenuBook,
+                                    imageVector = Icons.AutoMirrored.Filled.MenuBook,
                                     contentDescription = null,
                                     tint = GuruPurple,
                                     modifier = Modifier.size(20.dp)
@@ -248,7 +285,7 @@ fun EbookChaptersListView(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "40 Chapters • 101 Bilingual Sentences in Lesson 1",
+                            text = "${lessons.size} Chapters • $totalQuestionsCount Bilingual Practice Items",
                             fontSize = 12.sp,
                             color = GuruTextMuted
                         )
@@ -303,9 +340,65 @@ fun EbookChaptersListView(
                 }
             }
 
+            // Search & Bookmark Filter
+            item {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        shape = CircleShape,
+                        leadingIcon = {
+                            Icon(Icons.Default.Search, contentDescription = "Search", tint = GuruTextSubtle, modifier = Modifier.size(18.dp))
+                        },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(Icons.Default.Clear, contentDescription = "Clear", tint = GuruTextSubtle, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        },
+                        placeholder = {
+                            Text("Search chapters...", fontSize = 13.sp, color = GuruTextSubtle)
+                        },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = GuruPurple,
+                            unfocusedBorderColor = if (isDark) GuruDarkCardBorder else GuruCardBorder,
+                            focusedContainerColor = if (isDark) GuruDarkSurfaceContainer else GuruSurfaceContainer,
+                            unfocusedContainerColor = if (isDark) GuruDarkSurfaceContainer else GuruSurfaceContainer
+                        )
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(if (bookmarkedOnly) GuruPurple else (if (isDark) GuruDarkSurfaceContainer else GuruSurfaceContainer))
+                            .border(1.dp, if (bookmarkedOnly) GuruPurple else (if (isDark) GuruDarkCardBorder else GuruCardBorder), CircleShape)
+                            .clickable { bookmarkedOnly = !bookmarkedOnly }
+                            .padding(horizontal = 14.dp, vertical = 14.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (bookmarkedOnly) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                            contentDescription = "Bookmarked Only",
+                            tint = if (bookmarkedOnly) Color.White else (if (isDark) GuruPurple else GuruPurpleDeep),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+
             // Section: Curriculum Chapters
             item {
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -314,14 +407,14 @@ fun EbookChaptersListView(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Curriculum Chapters",
+                        text = if (bookmarkedOnly) "Bookmarked Chapters" else "Curriculum Chapters",
                         fontFamily = FontFamily.Default,
                         fontWeight = FontWeight.Bold,
                         fontSize = 17.sp,
                         color = if (isDark) GuruDarkText else GuruTextDark
                     )
                     Text(
-                        text = "Table of Contents",
+                        text = "${filteredChapters.size} Chapters",
                         fontSize = 12.sp,
                         color = GuruTextSubtle
                     )
@@ -329,9 +422,10 @@ fun EbookChaptersListView(
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            // All 40 Chapters List
-            itemsIndexed(lessons) { index, lesson ->
+            // Chapters List
+            itemsIndexed(filteredChapters, key = { _, l -> l.lessonNumber }) { _, lesson ->
                 val cardShape = RoundedCornerShape(22.dp)
+                val isBookmarked = UserPrefs.bookmarkedLessons.contains(lesson.lessonNumber)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -352,27 +446,27 @@ fun EbookChaptersListView(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
+                                        .clip(CircleShape)
                                         .background(GuruPurpleLight)
-                                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                                        .padding(horizontal = 10.dp, vertical = 3.dp)
                                 ) {
                                     Text(
                                         text = "Lesson ${String.format("%02d", lesson.lessonNumber)} • Page ${lesson.pageNumber}",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = GuruPurple
+                                        color = GuruPurpleDeep
                                     )
                                 }
                                 if (lesson.isAvailable) {
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Box(
                                         modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
+                                            .clip(CircleShape)
                                             .background(GuruMintLight)
-                                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                                            .padding(horizontal = 10.dp, vertical = 3.dp)
                                     ) {
                                         Text(
-                                            text = "${lesson.totalQuestions} Sentences",
+                                            text = "${lesson.totalQuestions} Items",
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = GuruMintDark
@@ -381,12 +475,25 @@ fun EbookChaptersListView(
                                 }
                             }
 
-                            Icon(
-                                imageVector = if (lesson.isAvailable) Icons.Default.BookmarkBorder else Icons.Default.Lock,
-                                contentDescription = null,
-                                tint = if (lesson.isAvailable) GuruPurple else GuruTextSubtle,
-                                modifier = Modifier.size(18.dp)
-                            )
+                            IconButton(
+                                onClick = {
+                                    if (lesson.isAvailable) {
+                                        UserPrefs.toggleBookmark(context, lesson.lessonNumber)
+                                    }
+                                },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = when {
+                                        !lesson.isAvailable -> Icons.Default.Lock
+                                        isBookmarked -> Icons.Default.Bookmark
+                                        else -> Icons.Default.BookmarkBorder
+                                    },
+                                    contentDescription = "Bookmark",
+                                    tint = if (lesson.isAvailable) GuruPurple else GuruTextSubtle,
+                                    modifier = Modifier.size(19.dp)
+                                )
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(10.dp))
@@ -455,10 +562,14 @@ fun LessonExerciseReaderView(
     currentTab: NavTab,
     onTabSelected: (NavTab) -> Unit,
     onBackToChapters: () -> Unit,
+    onPrevLesson: (() -> Unit)? = null,
+    onNextLesson: (() -> Unit)? = null,
     onStartPractice: (Int) -> Unit
 ) {
+    val context = LocalContext.current
     val isDark = isAppDarkTheme()
     var questions by remember { mutableStateOf<List<QuestionEntity>>(emptyList()) }
+    var searchSentence by remember { mutableStateOf("") }
 
     // Global state: whether answers are hidden or shown by default
     var allAnswersHidden by remember { mutableStateOf(false) }
@@ -470,7 +581,21 @@ fun LessonExerciseReaderView(
         questions = repository.getQuestionsForLessonSync(lesson.lessonNumber)
         individualVisibility.clear()
         allAnswersHidden = false
+        searchSentence = ""
     }
+
+    val filteredQuestions = remember(questions, searchSentence) {
+        val q = searchSentence.trim().lowercase()
+        if (q.isBlank()) questions
+        else questions.filter { item ->
+            item.hindiText.lowercase().contains(q) ||
+                item.primaryAnswer.lowercase().contains(q) ||
+                item.romanText.lowercase().contains(q) ||
+                "#${item.questionNumber}".contains(q)
+        }
+    }
+
+    val isBookmarked = UserPrefs.bookmarkedLessons.contains(lesson.lessonNumber)
 
     // Helper to determine if a specific sentence answer is revealed
     fun isSentenceRevealed(qId: Long): Boolean {
@@ -518,7 +643,12 @@ fun LessonExerciseReaderView(
                         )
                     }
 
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 10.dp)
+                    ) {
                         Text(
                             text = "Lesson ${String.format("%02d", lesson.lessonNumber)} • p. ${lesson.pageNumber}/686",
                             fontSize = 12.sp,
@@ -538,14 +668,15 @@ fun LessonExerciseReaderView(
                         modifier = Modifier
                             .shadow(1.dp, CircleShape)
                             .clip(CircleShape)
-                            .background(if (isDark) GuruDarkSurface else Color.White)
-                            .size(40.dp),
+                            .background(if (isBookmarked) GuruPurpleLight else (if (isDark) GuruDarkSurface else Color.White))
+                            .size(40.dp)
+                            .clickable { UserPrefs.toggleBookmark(context, lesson.lessonNumber) },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.BookmarkBorder,
+                            imageVector = if (isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
                             contentDescription = "Bookmark",
-                            tint = if (isDark) GuruDarkText else GuruTextDark,
+                            tint = if (isBookmarked) GuruPurple else (if (isDark) GuruDarkText else GuruTextDark),
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -624,7 +755,7 @@ fun LessonExerciseReaderView(
                                     .background(if (isDark) Color(0xFF262347) else GuruPurpleLight)
                                     .clickable {
                                         if (questions.isNotEmpty()) {
-                                            ttsManager.speak(questions.first().primaryAnswer)
+                                            ttsManager.speak(extractSpeakableEnglish(questions.first().primaryAnswer))
                                         }
                                     }
                                     .padding(vertical = 10.dp),
@@ -690,7 +821,7 @@ fun LessonExerciseReaderView(
                 }
             }
 
-            // Self-Testing Mode Banner
+            // Self-Testing Mode Banner & Reader Search
             item {
                 Spacer(modifier = Modifier.height(10.dp))
                 Box(
@@ -713,6 +844,37 @@ fun LessonExerciseReaderView(
                         )
                     }
                 }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedTextField(
+                    value = searchSentence,
+                    onValueChange = { searchSentence = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                    leadingIcon = {
+                        Icon(Icons.Default.Search, contentDescription = "Filter", tint = GuruTextSubtle, modifier = Modifier.size(18.dp))
+                    },
+                    trailingIcon = {
+                        if (searchSentence.isNotEmpty()) {
+                            IconButton(onClick = { searchSentence = "" }) {
+                                Icon(Icons.Default.Clear, contentDescription = "Clear", tint = GuruTextSubtle, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    },
+                    placeholder = {
+                        Text("Search sentences or #number in this chapter...", fontSize = 12.sp, color = GuruTextSubtle)
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = GuruPurple,
+                        unfocusedBorderColor = if (isDark) GuruDarkCardBorder else GuruCardBorder,
+                        focusedContainerColor = if (isDark) GuruDarkSurface else Color.White,
+                        unfocusedContainerColor = if (isDark) GuruDarkSurface else Color.White
+                    )
+                )
             }
 
             // Section Header
@@ -726,7 +888,7 @@ fun LessonExerciseReaderView(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "EXERCISE SENTENCES (1 – ${questions.size})",
+                        text = "EXERCISE SENTENCES (${filteredQuestions.size} / ${questions.size})",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = GuruPurple,
@@ -743,7 +905,7 @@ fun LessonExerciseReaderView(
             }
 
             // Sentence Cards with individual Show/Hide toggle
-            itemsIndexed(questions) { index, q ->
+            itemsIndexed(filteredQuestions, key = { _, q -> q.id }) { _, q ->
                 val isRevealed = isSentenceRevealed(q.id)
                 val cardShape = RoundedCornerShape(22.dp)
 
@@ -817,7 +979,7 @@ fun LessonExerciseReaderView(
                                 Spacer(modifier = Modifier.width(6.dp))
 
                                 IconButton(
-                                    onClick = { ttsManager.speak(q.primaryAnswer) },
+                                    onClick = { ttsManager.speak(extractSpeakableEnglish(q.primaryAnswer)) },
                                     modifier = Modifier.size(28.dp)
                                 ) {
                                     Icon(
@@ -850,58 +1012,67 @@ fun LessonExerciseReaderView(
 
                         Spacer(modifier = Modifier.height(10.dp))
 
-                        // English Answer: Revealed vs Hidden
-                        if (isRevealed) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(if (isDark) Color(0xFF1B1936) else Color(0xFFF6F4FF))
-                                    .border(1.dp, GuruPurpleBorder, RoundedCornerShape(14.dp))
-                                    .clickable { individualVisibility[q.id] = false }
-                                    .padding(horizontal = 14.dp, vertical = 10.dp)
-                            ) {
-                                Column {
-                                    Text(
-                                        text = q.primaryAnswer,
-                                        fontFamily = FontFamily.Default,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 16.sp,
-                                        color = GuruPurple
-                                    )
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = "Tap to hide • उत्तर छुपाएं",
-                                        fontSize = 10.sp,
-                                        color = GuruTextSubtle
-                                    )
+                        // English Answer: Smooth Animated Reveal vs Hidden
+                        AnimatedContent(
+                            targetState = isRevealed,
+                            transitionSpec = {
+                                (fadeIn(tween(200)) + expandVertically(tween(200))) togetherWith
+                                    (fadeOut(tween(150)) + shrinkVertically(tween(160)))
+                            },
+                            label = "ebookRevealAnim"
+                        ) { revealed ->
+                            if (revealed) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .background(if (isDark) Color(0xFF1B1936) else Color(0xFFF6F4FF))
+                                        .border(1.dp, GuruPurpleBorder, RoundedCornerShape(14.dp))
+                                        .clickable { individualVisibility[q.id] = false }
+                                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = q.primaryAnswer,
+                                            fontFamily = FontFamily.Default,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 16.sp,
+                                            color = GuruPurple
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = "Tap to hide • उत्तर छुपाएं",
+                                            fontSize = 10.sp,
+                                            color = GuruTextSubtle
+                                        )
+                                    }
                                 }
-                            }
-                        } else {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(if (isDark) Color(0xFF131222) else Color(0xFFFAF9FF))
-                                    .border(1.dp, GuruCardBorderDashed, RoundedCornerShape(14.dp))
-                                    .clickable { individualVisibility[q.id] = true }
-                                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.Visibility,
-                                        contentDescription = null,
-                                        tint = GuruPurple,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "Tap to reveal English answer (उत्तर देखने के लिए टैप करें)",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = GuruPurple
-                                    )
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .background(if (isDark) Color(0xFF131222) else Color(0xFFFAF9FF))
+                                        .border(1.dp, GuruCardBorderDashed, RoundedCornerShape(14.dp))
+                                        .clickable { individualVisibility[q.id] = true }
+                                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.Visibility,
+                                            contentDescription = null,
+                                            tint = GuruPurple,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Tap to reveal English answer (उत्तर देखने के लिए टैप करें)",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = GuruPurple
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -909,20 +1080,88 @@ fun LessonExerciseReaderView(
                 }
             }
 
-            // Bottom Practice Launcher
+            // Bottom Practice & Chapter Switcher
             item {
                 Spacer(modifier = Modifier.height(16.dp))
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     GuruButton(
-                        text = "Practice Word-Pick Quiz ⚡",
+                        text = "Practice Interactive Quiz ⚡",
                         onClick = { onStartPractice(lesson.lessonNumber) },
                         modifier = Modifier.fillMaxWidth(),
                         height = 50.dp
                     )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(if (onPrevLesson != null) (if (isDark) GuruDarkSurface else Color.White) else Color.Transparent)
+                                .border(
+                                    1.dp,
+                                    if (onPrevLesson != null) (if (isDark) GuruDarkCardBorder else GuruCardBorder) else Color.Transparent,
+                                    RoundedCornerShape(14.dp)
+                                )
+                                .clickable(enabled = onPrevLesson != null) { onPrevLesson?.invoke() }
+                                .padding(vertical = 12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Prev Chapter",
+                                    tint = if (onPrevLesson != null) GuruPurple else GuruTextSubtle.copy(alpha = 0.3f),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Prev Lesson",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (onPrevLesson != null) GuruPurple else GuruTextSubtle.copy(alpha = 0.3f)
+                                )
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(if (onNextLesson != null) (if (isDark) GuruDarkSurface else Color.White) else Color.Transparent)
+                                .border(
+                                    1.dp,
+                                    if (onNextLesson != null) (if (isDark) GuruDarkCardBorder else GuruCardBorder) else Color.Transparent,
+                                    RoundedCornerShape(14.dp)
+                                )
+                                .clickable(enabled = onNextLesson != null) { onNextLesson?.invoke() }
+                                .padding(vertical = 12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Next Lesson",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (onNextLesson != null) GuruPurple else GuruTextSubtle.copy(alpha = 0.3f)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = "Next Chapter",
+                                    tint = if (onNextLesson != null) GuruPurple else GuruTextSubtle.copy(alpha = 0.3f),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

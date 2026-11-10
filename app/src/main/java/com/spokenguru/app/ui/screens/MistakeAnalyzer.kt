@@ -13,17 +13,47 @@ object MistakeAnalyzer {
         primaryAnswer: String,
         grammarRule: String
     ): MistakeAnalysis {
+        // Handle Word Match pair mismatch: "Left ↔ UserRight"
+        if (userAnswer.contains("↔") && primaryAnswer.contains("↔")) {
+            val parts = userAnswer.split("↔").map { it.trim() }
+            if (parts.size == 2) {
+                val left = parts[0]
+                val wrongRight = parts[1]
+                val pairs = primaryAnswer.split(",").mapNotNull { entry ->
+                    val kv = entry.split("↔").map { it.trim() }
+                    if (kv.size == 2) kv[0] to kv[1] else null
+                }.toMap()
+                val expectedRight = pairs[left]
+                if (expectedRight != null) {
+                    return MistakeAnalysis(
+                        explanation = "गलती: '$left' की सही जोड़ी '$expectedRight' है, '$wrongRight' नहीं।",
+                        userMistakeWord = wrongRight,
+                        expectedWord = expectedRight
+                    )
+                }
+            }
+        }
+
         val cleanUser = cleanSentence(userAnswer)
         val cleanPrimary = cleanSentence(primaryAnswer)
 
         if (cleanUser.isBlank()) {
             return MistakeAnalysis(
-                explanation = "उत्तर खाली है। कृपया नीचे दिए गए शब्दों से वाक्य बनाएं।"
+                explanation = "उत्तर खाली है। कृपया नीचे दिए गए विकल्पों या शब्दों से उत्तर चुनें।"
             )
         }
 
         val userTokens = cleanUser.split("\\s+".toRegex()).filter { it.isNotBlank() }
         val solutionTokens = cleanPrimary.split("\\s+".toRegex()).filter { it.isNotBlank() }
+
+        // Single-word answers (MCQ / Fill Blank)
+        if (solutionTokens.size == 1 && userTokens.size == 1) {
+            return MistakeAnalysis(
+                explanation = "गलती: आपने '${userAnswer.trim()}' चुना, जबकि सही विकल्प '${primaryAnswer.trim()}' होना चाहिए।",
+                userMistakeWord = userAnswer.trim(),
+                expectedWord = primaryAnswer.trim()
+            )
+        }
 
         // 1. High-frequency grammatical substitution rules
         val substitutionRules = listOf(
@@ -40,7 +70,9 @@ object MistakeAnalyzer {
             Pair("do", "does") to "He/She/Singular के साथ 'does' का प्रयोग होता है, 'do' नहीं।",
             Pair("does", "do") to "I/You/Plural कर्ता के साथ 'do' का प्रयोग होता है, 'does' नहीं।",
             Pair("to", "past") to "बीत चुके मिनटों (बजकर मिनट) के लिए 'past' का प्रयोग करें, 'to' नहीं।",
-            Pair("past", "to") to "बजने में बाकी मिनटों के लिए 'to' का प्रयोग करें, 'past' नहीं।"
+            Pair("past", "to") to "बजने में बाकी मिनटों के लिए 'to' का प्रयोग करें, 'past' नहीं।",
+            Pair("since", "for") to "अनिश्चित समयावधि (Duration) के लिए 'for' आएगा, 'since' नहीं।",
+            Pair("for", "since") to "निश्चित समय (Point of time) के लिए 'since' आएगा, 'for' नहीं।"
         )
 
         for ((pair, msg) in substitutionRules) {

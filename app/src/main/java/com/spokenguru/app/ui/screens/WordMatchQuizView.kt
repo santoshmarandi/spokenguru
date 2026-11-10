@@ -1,8 +1,11 @@
 package com.spokenguru.app.ui.screens
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -12,9 +15,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -25,13 +27,14 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -50,25 +53,36 @@ import com.spokenguru.app.ui.theme.GuruRed
 import com.spokenguru.app.ui.theme.GuruRedLight
 import com.spokenguru.app.ui.theme.GuruTextDark
 import com.spokenguru.app.ui.theme.GuruTextMuted
-import com.spokenguru.app.ui.theme.GuruTextSubtle
 import com.spokenguru.app.ui.theme.isAppDarkTheme
 import kotlinx.coroutines.delay
+
+private data class MatchColumnItem(
+    val pairIndex: Int,
+    val text: String
+)
 
 @Composable
 fun WordMatchQuizView(
     matchPairs: Map<String, String>,
     isDark: Boolean = isAppDarkTheme(),
+    onPairMatched: ((left: String, right: String) -> Unit)? = null,
     onMatchSuccess: () -> Unit,
     onMismatch: (userLeft: String, userRight: String, expectedRight: String) -> Unit
 ) {
-    val leftItems = remember(matchPairs) { matchPairs.keys.toList() }
-    val rightItems = remember(matchPairs) { matchPairs.values.shuffled() }
+    val pairEntries = remember(matchPairs) { matchPairs.entries.toList() }
+    val leftItems = remember(pairEntries) {
+        pairEntries.mapIndexed { idx, entry -> MatchColumnItem(idx, entry.key) }
+    }
+    val rightItems = remember(pairEntries) {
+        pairEntries.mapIndexed { idx, entry -> MatchColumnItem(idx, entry.value) }.shuffled()
+    }
 
-    var selectedLeft by remember(matchPairs) { mutableStateOf<String?>(null) }
-    var selectedRight by remember(matchPairs) { mutableStateOf<String?>(null) }
-    val matchedKeys = remember(matchPairs) { mutableStateListOf<String>() }
+    var selectedLeft by remember(matchPairs) { mutableStateOf<MatchColumnItem?>(null) }
+    var selectedRight by remember(matchPairs) { mutableStateOf<MatchColumnItem?>(null) }
+    val matchedLeftIndices = remember(matchPairs) { mutableStateListOf<Int>() }
+    val matchedRightIndices = remember(matchPairs) { mutableStateListOf<Int>() }
 
-    var wrongPair by remember(matchPairs) { mutableStateOf<Pair<String, String>?>(null) }
+    var wrongPair by remember(matchPairs) { mutableStateOf<Pair<MatchColumnItem, MatchColumnItem>?>(null) }
 
     LaunchedEffect(wrongPair) {
         if (wrongPair != null) {
@@ -79,27 +93,30 @@ fun WordMatchQuizView(
         }
     }
 
-    fun handleSelection(left: String?, right: String?) {
+    fun handleSelection(left: MatchColumnItem?, right: MatchColumnItem?) {
         val currLeft = left ?: selectedLeft
         val currRight = right ?: selectedRight
 
         if (currLeft != null && currRight != null) {
-            val expectedRight = matchPairs[currLeft]
-            if (expectedRight.equals(currRight, ignoreCase = true)) {
-                // Correct match!
-                matchedKeys.add(currLeft)
+            val expectedRight = pairEntries[currLeft.pairIndex].value
+            val isSamePair = currLeft.pairIndex == currRight.pairIndex ||
+                expectedRight.equals(currRight.text, ignoreCase = true)
+
+            if (isSamePair) {
+                matchedLeftIndices.add(currLeft.pairIndex)
+                matchedRightIndices.add(currRight.pairIndex)
                 selectedLeft = null
                 selectedRight = null
                 SoundEffectManager.playSuccess()
+                onPairMatched?.invoke(currLeft.text, currRight.text)
 
-                if (matchedKeys.size == matchPairs.size) {
+                if (matchedLeftIndices.size >= pairEntries.size) {
                     onMatchSuccess()
                 }
             } else {
-                // Wrong match!
                 wrongPair = Pair(currLeft, currRight)
                 SoundEffectManager.playError()
-                onMismatch(currLeft, currRight, expectedRight ?: "")
+                onMismatch(currLeft.text, currRight.text, expectedRight)
             }
         }
     }
@@ -111,7 +128,7 @@ fun WordMatchQuizView(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "सही जोड़ों पर टैप करें (Tap matching pairs)",
+            text = "सही जोड़ों पर टैप करें (${matchedLeftIndices.size}/${pairEntries.size} matched)",
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
             color = if (isDark) GuruDarkText.copy(alpha = 0.7f) else GuruTextMuted,
@@ -132,20 +149,21 @@ fun WordMatchQuizView(
                 // Left Column Card
                 Box(modifier = Modifier.weight(1f)) {
                     if (leftItem != null) {
-                        val isMatched = matchedKeys.contains(leftItem)
+                        val isMatched = matchedLeftIndices.contains(leftItem.pairIndex)
                         val isSelected = selectedLeft == leftItem
                         val isWrong = wrongPair?.first == leftItem
 
                         MatchTile(
-                            text = leftItem,
+                            text = leftItem.text,
                             isSelected = isSelected,
                             isMatched = isMatched,
                             isWrong = isWrong,
                             isDark = isDark,
                             onClick = {
                                 if (!isMatched && wrongPair == null) {
-                                    selectedLeft = if (selectedLeft == leftItem) null else leftItem
-                                    handleSelection(selectedLeft, null)
+                                    val nextLeft = if (selectedLeft == leftItem) null else leftItem
+                                    selectedLeft = nextLeft
+                                    handleSelection(nextLeft, selectedRight)
                                 }
                             }
                         )
@@ -155,23 +173,21 @@ fun WordMatchQuizView(
                 // Right Column Card
                 Box(modifier = Modifier.weight(1f)) {
                     if (rightItem != null) {
-                        val matchedKeyForThisRight = matchPairs.entries.firstOrNull {
-                            it.value.equals(rightItem, ignoreCase = true) && matchedKeys.contains(it.key)
-                        }?.key
-                        val isMatched = matchedKeyForThisRight != null
+                        val isMatched = matchedRightIndices.contains(rightItem.pairIndex)
                         val isSelected = selectedRight == rightItem
                         val isWrong = wrongPair?.second == rightItem
 
                         MatchTile(
-                            text = rightItem,
+                            text = rightItem.text,
                             isSelected = isSelected,
                             isMatched = isMatched,
                             isWrong = isWrong,
                             isDark = isDark,
                             onClick = {
                                 if (!isMatched && wrongPair == null) {
-                                    selectedRight = if (selectedRight == rightItem) null else rightItem
-                                    handleSelection(null, selectedRight)
+                                    val nextRight = if (selectedRight == rightItem) null else rightItem
+                                    selectedRight = nextRight
+                                    handleSelection(selectedLeft, nextRight)
                                 }
                             }
                         )
@@ -191,14 +207,29 @@ private fun MatchTile(
     isDark: Boolean,
     onClick: () -> Unit
 ) {
-    val shape = RoundedCornerShape(14.dp)
+    val shape = RoundedCornerShape(16.dp)
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.95f else 1f,
-        animationSpec = spring(),
+    val pressScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.94f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
         label = "tileScale"
     )
+    val matchBounce = remember { Animatable(1f) }
+    LaunchedEffect(isMatched) {
+        if (isMatched) {
+            matchBounce.animateTo(1.07f, animationSpec = tween(110))
+            matchBounce.animateTo(1f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+        }
+    }
+    val shakeAnim = remember { Animatable(0f) }
+    LaunchedEffect(isWrong) {
+        if (isWrong) {
+            for (offset in listOf(-14f, 14f, -10f, 10f, -6f, 0f)) {
+                shakeAnim.animateTo(offset, animationSpec = tween(42))
+            }
+        }
+    }
 
     val bgColor by animateColorAsState(
         targetValue = when {
@@ -230,7 +261,8 @@ private fun MatchTile(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .scale(scale)
+            .offset { IntOffset(shakeAnim.value.roundToInt(), 0) }
+            .scale(pressScale * matchBounce.value)
             .shadow(
                 elevation = if (isSelected || isMatched) 2.dp else 1.dp,
                 shape = shape,
@@ -249,17 +281,16 @@ private fun MatchTile(
                 indication = null,
                 onClick = onClick
             )
-            .padding(horizontal = 12.dp, vertical = 14.dp),
+            .padding(horizontal = 10.dp, vertical = 14.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
             fontSize = 14.sp,
             fontWeight = if (isSelected || isMatched) FontWeight.Bold else FontWeight.SemiBold,
-            fontFamily = FontFamily.Default,
             color = textColor,
             textAlign = TextAlign.Center,
-            maxLines = 3
+            lineHeight = 18.sp
         )
     }
 }

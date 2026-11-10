@@ -50,12 +50,35 @@ val GuruBg: Color
     @ReadOnlyComposable
     get() = LocalAppThemePalette.current.lightBg
 
-// Clean Minimalist Neutrals
-val GuruCardBorder = Color(0xFFE5E7EB)
-val GuruCardBorderDashed = Color(0xFFD1D5DB)
-val GuruTextDark = Color(0xFF111827)
-val GuruTextMuted = Color(0xFF4B5563)
-val GuruTextSubtle = Color(0xFF9CA3AF)
+val GuruSurfaceContainer: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalAppThemePalette.current.lightSurfaceContainer
+
+val GuruPillBg: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalAppThemePalette.current.lightPillBg
+
+val GuruProgressTrack: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalAppThemePalette.current.lightProgressTrack
+
+// Clean Minimalist Neutrals (Dynamic outline + M3 ink)
+val GuruCardBorder: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalAppThemePalette.current.lightCardBorder
+
+val GuruCardBorderDashed: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalAppThemePalette.current.lightDashedBorder
+
+val GuruTextDark = Color(0xFF1D1B20)
+val GuruTextMuted = Color(0xFF49454F)
+val GuruTextSubtle = Color(0xFF79747E)
 
 // Dark Theme Variants
 val GuruDarkBg: Color
@@ -67,6 +90,16 @@ val GuruDarkSurface: Color
     @Composable
     @ReadOnlyComposable
     get() = LocalAppThemePalette.current.darkSurface
+
+val GuruDarkSurfaceContainer: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalAppThemePalette.current.darkSurfaceContainer
+
+val GuruDarkPillBg: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalAppThemePalette.current.darkPillBg
 
 val GuruDarkCardBorder: Color
     @Composable

@@ -3,7 +3,6 @@ package com.spokenguru.app.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import com.spokenguru.app.ui.theme.isAppDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,24 +20,23 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Forum
-import androidx.compose.material.icons.filled.Help
-import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.LocalFireDepartment
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Translate
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -51,13 +49,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.spokenguru.app.data.UserPrefs
 import com.spokenguru.app.data.repository.LessonRepository
 import com.spokenguru.app.ui.components.AppBottomNavigation
 import com.spokenguru.app.ui.components.NavTab
+import com.spokenguru.app.ui.theme.AppThemePreset
+import com.spokenguru.app.ui.theme.DarkModePreference
 import com.spokenguru.app.ui.theme.GuruAmber
 import com.spokenguru.app.ui.theme.GuruAmberLight
 import com.spokenguru.app.ui.theme.GuruBg
@@ -77,25 +79,33 @@ import com.spokenguru.app.ui.theme.GuruRed
 import com.spokenguru.app.ui.theme.GuruRedLight
 import com.spokenguru.app.ui.theme.GuruTextDark
 import com.spokenguru.app.ui.theme.GuruTextMuted
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.ui.platform.LocalContext
-import com.spokenguru.app.ui.theme.AppThemePreset
-import com.spokenguru.app.ui.theme.DarkModePreference
-import com.spokenguru.app.ui.theme.ThemeState
 import com.spokenguru.app.ui.theme.GuruTextSubtle
+import com.spokenguru.app.ui.theme.ThemeState
+import com.spokenguru.app.ui.theme.isAppDarkTheme
 
 @Composable
 fun ProfileScreen(
     repository: LessonRepository,
     currentTab: NavTab,
     onTabSelected: (NavTab) -> Unit,
-    onOpenMistakes: () -> Unit,
-    onOpenImport: () -> Unit
+    onOpenMistakes: () -> Unit
 ) {
     val context = LocalContext.current
     val isDark = isAppDarkTheme()
+    val lessons by repository.allLessons.collectAsState(initial = emptyList())
     val mistakesCount by repository.mistakesCount.collectAsState(initial = 0)
-    var remindersEnabled by remember { mutableStateOf(true) }
+
+    val totalQuestions = remember(lessons) { lessons.sumOf { it.totalQuestions } }
+    val totalCompleted = remember(lessons) { lessons.sumOf { it.completedQuestions } }
+    val completedLessons = remember(lessons) {
+        lessons.count { it.isAvailable && it.totalQuestions > 0 && it.completedQuestions >= it.totalQuestions }
+    }
+    val progressPct = if (totalQuestions > 0) ((totalCompleted * 100L) / totalQuestions).toInt() else 0
+    val (levelNum, levelTitle) = UserPrefs.getLevelTitle()
+
+    var showEditNameDialog by remember { mutableStateOf(false) }
+    var nameInput by remember { mutableStateOf(UserPrefs.learnerName) }
+    var showDailyGoalDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         bottomBar = {
@@ -114,7 +124,7 @@ fun ProfileScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // User Header Profile Card (from unnamed (4).png)
+            // User Header Profile Card
             val cardShape = RoundedCornerShape(24.dp)
             Box(
                 modifier = Modifier
@@ -130,7 +140,6 @@ fun ProfileScreen(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // User Avatar RS
                         Box(
                             modifier = Modifier
                                 .size(64.dp)
@@ -139,7 +148,7 @@ fun ProfileScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "RS",
+                                text = UserPrefs.getInitials(),
                                 fontFamily = FontFamily.Default,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 22.sp,
@@ -150,39 +159,39 @@ fun ProfileScreen(
                         Spacer(modifier = Modifier.width(16.dp))
 
                         Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
                                 Text(
-                                    text = "Rahul Sharma",
+                                    text = UserPrefs.learnerName,
                                     fontFamily = FontFamily.Default,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 20.sp,
-                                    color = if (isDark) GuruDarkText else GuruTextDark
+                                    color = if (isDark) GuruDarkText else GuruTextDark,
+                                    modifier = Modifier.weight(1f)
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(GuruBlueLight)
-                                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                                IconButton(
+                                    onClick = {
+                                        nameInput = UserPrefs.learnerName
+                                        showEditNameDialog = true
+                                    },
+                                    modifier = Modifier.size(30.dp)
                                 ) {
-                                    Text(
-                                        text = "• Free Member",
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = GuruBlue
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "Edit Name",
+                                        tint = GuruPurple,
+                                        modifier = Modifier.size(16.dp)
                                     )
                                 }
                             }
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "Spoken English Learner",
-                                fontSize = 13.sp,
+                                text = "${UserPrefs.totalXp} XP Earned • Daily Goal: ${UserPrefs.todayPracticed}/${UserPrefs.dailyGoal}",
+                                fontSize = 12.sp,
                                 color = if (isDark) GuruDarkTextMuted else GuruTextMuted
-                            )
-                            Text(
-                                text = "📅 Member since October 2026",
-                                fontSize = 11.sp,
-                                color = GuruTextSubtle
                             )
                         }
                     }
@@ -201,7 +210,7 @@ fun ProfileScreen(
                                 .padding(horizontal = 12.dp, vertical = 6.dp)
                         ) {
                             Text(
-                                text = "Level 1 • Beginner",
+                                text = "Level $levelNum • $levelTitle",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = GuruPurple
@@ -210,24 +219,23 @@ fun ProfileScreen(
 
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(if (isDark) Color(0xFF232142) else Color(0xFFF6F4FF))
-                                .clickable { onOpenImport() }
+                                .clip(CircleShape)
+                                .background(if (isDark) Color(0xFF1E3228) else GuruMintLight)
                                 .padding(horizontal = 12.dp, vertical = 6.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
-                                    imageVector = Icons.Default.Settings,
+                                    imageVector = Icons.Default.CheckCircle,
                                     contentDescription = null,
-                                    tint = GuruPurple,
+                                    tint = GuruMint,
                                     modifier = Modifier.size(14.dp)
                                 )
-                                Spacer(modifier = Modifier.width(4.dp))
+                                Spacer(modifier = Modifier.width(5.dp))
                                 Text(
-                                    text = "Manage / DB",
+                                    text = "$progressPct% Mastery",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = GuruPurple
+                                    color = GuruMint
                                 )
                             }
                         }
@@ -235,25 +243,23 @@ fun ProfileScreen(
                 }
             }
 
-            // Learning Progress Section
+            // Live Learning Progress Section
             Text(
-                text = "Learning Progress",
+                text = "Learning Progress (लाइव प्रगति)",
                 fontFamily = FontFamily.Default,
                 fontWeight = FontWeight.Bold,
                 fontSize = 17.sp,
                 color = if (isDark) GuruDarkText else GuruTextDark
             )
 
-            // 4 Stats Cards in 2x2 grid
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Streak Card
                 StatCard(
                     title = "Daily Practice Streak",
-                    value = "18 Days",
-                    tag = "Active",
+                    value = "${UserPrefs.streakDays} Days",
+                    tag = "${UserPrefs.todayPracticed}/${UserPrefs.dailyGoal} Today",
                     tagBg = GuruAmberLight,
                     tagColor = GuruAmber,
                     icon = Icons.Default.LocalFireDepartment,
@@ -261,11 +267,10 @@ fun ProfileScreen(
                     modifier = Modifier.weight(1f)
                 )
 
-                // Sentences Card
                 StatCard(
-                    title = "Sentences Practiced",
-                    value = "101 / 101",
-                    tag = "100%",
+                    title = "Questions Practiced",
+                    value = "$totalCompleted / ${if (totalQuestions > 0) totalQuestions else 8207}",
+                    tag = "$progressPct%",
                     tagBg = GuruBlueLight,
                     tagColor = GuruBlue,
                     icon = Icons.Default.CheckCircle,
@@ -278,11 +283,10 @@ fun ProfileScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Chapter Track
                 StatCard(
-                    title = "Chapters Available",
-                    value = "40 / 40",
-                    tag = "eBook",
+                    title = "Lessons Completed",
+                    value = "$completedLessons / ${if (lessons.isNotEmpty()) lessons.size else 40}",
+                    tag = "Chapters",
                     tagBg = GuruPurpleLight,
                     tagColor = GuruPurple,
                     icon = Icons.Default.Translate,
@@ -290,7 +294,6 @@ fun ProfileScreen(
                     modifier = Modifier.weight(1f)
                 )
 
-                // Pending Revisions Card
                 StatCard(
                     title = "Pending Revisions",
                     value = "$mistakesCount",
@@ -304,7 +307,7 @@ fun ProfileScreen(
                 )
             }
 
-            // Theme & Appearance Section (थीम और मोड)
+            // Theme & Appearance Section
             Text(
                 text = "Theme & Appearance",
                 fontFamily = FontFamily.Default,
@@ -323,7 +326,6 @@ fun ProfileScreen(
                     .padding(18.dp)
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    // Dark / Light Mode Selector
                     Column {
                         Text(
                             text = "Display Mode (प्रदर्शन मोड)",
@@ -339,7 +341,6 @@ fun ProfileScreen(
                         )
                     }
 
-                    // 3 Mode Pills: System, Light, Dark
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -378,7 +379,6 @@ fun ProfileScreen(
 
                     Spacer(modifier = Modifier.height(2.dp))
 
-                    // Color Theme Preset
                     Column {
                         Text(
                             text = "Color Theme (थीम रंग)",
@@ -388,13 +388,12 @@ fun ProfileScreen(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "4 Vibrant Color Palettes • 4 अलग-अलग थीम",
+                            text = "5 Vibrant Color Palettes • 5 अलग-अलग थीम",
                             fontSize = 12.sp,
                             color = if (isDark) GuruDarkTextMuted else GuruTextMuted
                         )
                     }
 
-                    // 4 Theme Preset Cards in 2x2 grid
                     val presets = AppThemePreset.values()
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         for (i in presets.indices step 2) {
@@ -409,15 +408,15 @@ fun ProfileScreen(
                                         Box(
                                             modifier = Modifier
                                                 .weight(1f)
-                                                .clip(RoundedCornerShape(16.dp))
+                                                .clip(RoundedCornerShape(18.dp))
                                                 .background(
-                                                    if (isSelected) (if (isDark) Color(0xFF292452) else Color(0xFFF3F0FE))
-                                                    else (if (isDark) Color(0xFF1B1933) else Color(0xFFFBFBFE))
+                                                    if (isSelected) preset.primaryColor.copy(alpha = if (isDark) 0.22f else 0.12f)
+                                                    else (if (isDark) Color(0xFF1F1D26) else Color.White)
                                                 )
                                                 .border(
                                                     width = if (isSelected) 2.dp else 1.dp,
-                                                    color = if (isSelected) preset.primaryColor else (if (isDark) Color(0xFF2C284C) else Color(0xFFE4E1F4)),
-                                                    shape = RoundedCornerShape(16.dp)
+                                                    color = if (isSelected) preset.primaryColor else (if (isDark) Color(0xFF3A3548) else Color(0xFFD5CEDC)),
+                                                    shape = RoundedCornerShape(18.dp)
                                                 )
                                                 .clickable {
                                                     ThemeState.updatePreset(context, preset)
@@ -430,7 +429,6 @@ fun ProfileScreen(
                                                     horizontalArrangement = Arrangement.SpaceBetween,
                                                     verticalAlignment = Alignment.CenterVertically
                                                 ) {
-                                                    // Primary Color swatch
                                                     Box(
                                                         modifier = Modifier
                                                             .size(24.dp)
@@ -440,12 +438,12 @@ fun ProfileScreen(
                                                     if (isSelected) {
                                                         Box(
                                                             modifier = Modifier
-                                                                .clip(RoundedCornerShape(6.dp))
+                                                                .clip(CircleShape)
                                                                 .background(preset.primaryColor)
-                                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                                .padding(horizontal = 7.dp, vertical = 2.dp)
                                                         ) {
                                                             Text(
-                                                                text = "✓ Selected",
+                                                                text = "✓ Active",
                                                                 fontSize = 9.sp,
                                                                 fontWeight = FontWeight.Bold,
                                                                 color = Color.White
@@ -467,6 +465,8 @@ fun ProfileScreen(
                                                 )
                                             }
                                         }
+                                    } else {
+                                        Spacer(modifier = Modifier.weight(1f))
                                     }
                                 }
                             }
@@ -475,7 +475,7 @@ fun ProfileScreen(
                 }
             }
 
-            // Study & eBook Preferences Section
+            // Study & Preferences Section
             Text(
                 text = "Study & Preferences",
                 fontFamily = FontFamily.Default,
@@ -484,7 +484,6 @@ fun ProfileScreen(
                 color = if (isDark) GuruDarkText else GuruTextDark
             )
 
-            // Preferences List Card
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -495,16 +494,7 @@ fun ProfileScreen(
                     .padding(16.dp)
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    // Reading Mode
-                    PreferenceRow(
-                        icon = Icons.Default.Translate,
-                        iconBg = GuruPurpleLight,
-                        iconTint = GuruPurple,
-                        title = "Reading Mode Preferences",
-                        subtitle = "Hinglish translations ON • Speed 1.0x"
-                    )
-
-                    // Daily Goal & Reminders Toggle
+                    // Auto-Speak Correct Answers Toggle
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -513,33 +503,33 @@ fun ProfileScreen(
                             modifier = Modifier
                                 .size(40.dp)
                                 .clip(CircleShape)
-                                .background(GuruMintLight),
+                                .background(GuruPurpleLight),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Notifications,
+                                imageVector = Icons.AutoMirrored.Filled.VolumeUp,
                                 contentDescription = null,
-                                tint = GuruMint,
+                                tint = GuruPurple,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Daily Goal & Reminders",
+                                text = "Auto-Speak Answers",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp,
                                 color = if (isDark) GuruDarkText else GuruTextDark
                             )
                             Text(
-                                text = "Target: 30 sentences/day • 8:00 PM",
+                                text = "Pronounce English solution on correct answer",
                                 fontSize = 12.sp,
                                 color = GuruTextMuted
                             )
                         }
                         Switch(
-                            checked = remindersEnabled,
-                            onCheckedChange = { remindersEnabled = it },
+                            checked = UserPrefs.autoPlayAudio,
+                            onCheckedChange = { UserPrefs.updateAutoPlayAudio(context, it) },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = Color.White,
                                 checkedTrackColor = GuruPurple
@@ -547,27 +537,149 @@ fun ProfileScreen(
                         )
                     }
 
-                    // Offline Download & Database Manager
+                    // Smart Confusable Distractors Toggle
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(GuruPurpleLight),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Lightbulb,
+                                contentDescription = null,
+                                tint = GuruPurple,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Smart Confusable Distractors",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                color = if (isDark) GuruDarkText else GuruTextDark
+                            )
+                            Text(
+                                text = "Challenge mode with tricky tense & grammar traps",
+                                fontSize = 12.sp,
+                                color = GuruTextMuted
+                            )
+                        }
+                        Switch(
+                            checked = UserPrefs.smartDistractorsEnabled,
+                            onCheckedChange = { UserPrefs.updateSmartDistractors(context, it) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = GuruPurple
+                            )
+                        )
+                    }
+
+                    // Daily Practice Goal Target
                     PreferenceRow(
-                        icon = Icons.Default.CloudDownload,
-                        iconBg = GuruBlueLight,
-                        iconTint = GuruBlue,
-                        title = "Offline Database & Lessons",
-                        subtitle = "Room SQLite Database • 40 Chapters",
-                        onClick = onOpenImport
+                        icon = Icons.Default.Flag,
+                        iconBg = GuruMintLight,
+                        iconTint = GuruMint,
+                        title = "Daily Practice Goal",
+                        subtitle = "Target: ${UserPrefs.dailyGoal} questions/day (Tap to change)",
+                        onClick = { showDailyGoalDialog = true }
                     )
 
-                    // Bookmarks
+                    // Bookmarked Chapters
                     PreferenceRow(
                         icon = Icons.Default.Bookmark,
                         iconBg = GuruRedLight,
                         iconTint = GuruRed,
-                        title = "Bookmarks & Saved Notes",
-                        subtitle = "Saved practice sentences"
+                        title = "Bookmarked eBook Chapters",
+                        subtitle = if (UserPrefs.bookmarkedLessons.isEmpty()) "Bookmark chapters inside Exercise eBook"
+                        else "${UserPrefs.bookmarkedLessons.size} saved chapters (${UserPrefs.bookmarkedLessons.sorted().joinToString { "L$it" }})",
+                        onClick = { onTabSelected(NavTab.EBOOK) }
                     )
                 }
             }
         }
+    }
+
+    if (showEditNameDialog) {
+        AlertDialog(
+            onDismissRequest = { showEditNameDialog = false },
+            title = { Text("Edit Learner Name", fontWeight = FontWeight.Bold) },
+            text = {
+                OutlinedTextField(
+                    value = nameInput,
+                    onValueChange = { nameInput = it },
+                    singleLine = true,
+                    placeholder = { Text("Enter your name") },
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        UserPrefs.updateLearnerName(context, nameInput)
+                        showEditNameDialog = false
+                    }
+                ) {
+                    Text("Save", fontWeight = FontWeight.Bold, color = GuruPurple)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditNameDialog = false }) {
+                    Text("Cancel", color = GuruTextMuted)
+                }
+            }
+        )
+    }
+
+    if (showDailyGoalDialog) {
+        val goals = listOf(10, 20, 30, 50)
+        AlertDialog(
+            onDismissRequest = { showDailyGoalDialog = false },
+            title = { Text("Select Daily Goal", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    goals.forEach { goal ->
+                        val isSelected = UserPrefs.dailyGoal == goal
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(
+                                    if (isSelected) GuruPurpleLight
+                                    else (if (isDark) Color(0xFF1E293B) else Color(0xFFF3F4F6))
+                                )
+                                .border(
+                                    width = if (isSelected) 1.5.dp else 1.dp,
+                                    color = if (isSelected) GuruPurple else Color.Transparent,
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                .clickable {
+                                    UserPrefs.updateDailyGoal(context, goal)
+                                    showDailyGoalDialog = false
+                                }
+                                .padding(horizontal = 14.dp, vertical = 12.dp)
+                        ) {
+                            Text(
+                                text = "$goal questions / day",
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) GuruPurple else (if (isDark) GuruDarkText else GuruTextDark)
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showDailyGoalDialog = false }) {
+                    Text("Close", color = GuruPurple, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
     }
 }
 
@@ -637,7 +749,7 @@ fun StatCard(
                 text = value,
                 fontFamily = FontFamily.Default,
                 fontWeight = FontWeight.Bold,
-                fontSize = 20.sp,
+                fontSize = 18.sp,
                 color = if (isDark) GuruDarkText else GuruTextDark
             )
             Spacer(modifier = Modifier.height(2.dp))

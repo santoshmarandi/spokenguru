@@ -31,10 +31,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spokenguru.app.ui.theme.GuruCardBorder
 import com.spokenguru.app.ui.theme.GuruDarkCardBorder
+import com.spokenguru.app.ui.theme.GuruDarkPillBg
 import com.spokenguru.app.ui.theme.GuruDarkSurface
+import com.spokenguru.app.ui.theme.GuruDarkSurfaceContainer
 import com.spokenguru.app.ui.theme.GuruDarkText
+import com.spokenguru.app.ui.theme.GuruPillBg
 import com.spokenguru.app.ui.theme.GuruPurple
+import com.spokenguru.app.ui.theme.GuruPurpleDeep
 import com.spokenguru.app.ui.theme.GuruPurpleLight
+import com.spokenguru.app.ui.theme.GuruSurfaceContainer
 import com.spokenguru.app.ui.theme.GuruTextDark
 import com.spokenguru.app.ui.theme.GuruTextMuted
 import com.spokenguru.app.ui.theme.isAppDarkTheme
@@ -49,7 +54,7 @@ fun FillBlankQuizView(
     modifier: Modifier = Modifier,
     isDark: Boolean = isAppDarkTheme()
 ) {
-    val shape = RoundedCornerShape(18.dp)
+    val shape = RoundedCornerShape(22.dp)
 
     Column(
         modifier = modifier
@@ -63,14 +68,16 @@ fun FillBlankQuizView(
                 .fillMaxWidth()
                 .shadow(1.dp, shape, ambientColor = Color.Black.copy(alpha = 0.04f))
                 .clip(shape)
-                .background(if (isDark) GuruDarkSurface else Color.White)
+                .background(if (isDark) GuruDarkSurfaceContainer else GuruSurfaceContainer)
                 .border(1.dp, if (isDark) GuruDarkCardBorder else GuruCardBorder, shape)
                 .padding(20.dp),
             contentAlignment = Alignment.Center
         ) {
-            val parts = sentenceWithBlank.split("____")
-            val beforeBlank = parts.getOrNull(0) ?: ""
-            val afterBlank = parts.getOrNull(1) ?: ""
+            val tokens = sentenceWithBlank
+                .replace("____", " __BLANK__ ")
+                .trim()
+                .split("\\s+".toRegex())
+                .filter { it.isNotBlank() }
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
@@ -78,53 +85,64 @@ fun FillBlankQuizView(
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     color = if (isDark) GuruDarkText.copy(alpha = 0.6f) else GuruTextMuted,
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    modifier = Modifier.padding(bottom = 10.dp)
                 )
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    if (beforeBlank.isNotBlank()) {
-                        Text(
-                            text = beforeBlank,
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Medium,
-                            fontFamily = FontFamily.Default,
-                            color = if (isDark) GuruDarkText else GuruTextDark
-                        )
-                    }
-
-                    // Blank Pill Slot
-                    val slotShape = RoundedCornerShape(8.dp)
-                    Box(
-                        modifier = Modifier
-                            .padding(horizontal = 6.dp)
-                            .clip(slotShape)
-                            .background(if (selectedWord != null) (if (isDark) Color(0xFF2E234D) else GuruPurpleLight) else (if (isDark) Color(0xFF1E293B) else Color(0xFFF1F2F6)))
-                            .border(1.5.dp, if (selectedWord != null) GuruPurple else GuruPurple.copy(alpha = 0.4f), slotShape)
-                            .padding(horizontal = 12.dp, vertical = 4.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        AnimatedContent(targetState = selectedWord, label = "blankAnim") { word ->
+                    tokens.forEach { token ->
+                        if (token.contains("__BLANK__")) {
+                            val suffix = token.substringAfter("__BLANK__", "")
+                            val prefix = token.substringBefore("__BLANK__", "")
+                            if (prefix.isNotBlank()) {
+                                Text(
+                                    text = prefix,
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = if (isDark) GuruDarkText else GuruTextDark,
+                                    modifier = Modifier.align(Alignment.CenterVertically)
+                                )
+                            }
+                            val slotShape = RoundedCornerShape(10.dp)
+                            Box(
+                                modifier = Modifier
+                                    .clip(slotShape)
+                                    .background(if (selectedWord != null) (if (isDark) GuruDarkPillBg else GuruPurpleLight) else (if (isDark) GuruDarkSurface else GuruPillBg))
+                                    .border(1.5.dp, if (selectedWord != null) GuruPurple else GuruPurple.copy(alpha = 0.4f), slotShape)
+                                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                AnimatedContent(targetState = selectedWord, label = "blankAnim") { word ->
+                                    Text(
+                                        text = word ?: "  ?  ",
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (word != null) (if (isDark) Color.White else GuruPurpleDeep) else (if (isDark) GuruDarkText.copy(alpha = 0.5f) else GuruTextMuted)
+                                    )
+                                }
+                            }
+                            if (suffix.isNotBlank()) {
+                                Text(
+                                    text = suffix,
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = if (isDark) GuruDarkText else GuruTextDark,
+                                    modifier = Modifier.align(Alignment.CenterVertically)
+                                )
+                            }
+                        } else {
                             Text(
-                                text = word ?: "  ?  ",
+                                text = token,
                                 fontSize = 17.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (word != null) GuruPurple else (if (isDark) GuruDarkText.copy(alpha = 0.5f) else GuruTextMuted)
+                                fontWeight = FontWeight.Medium,
+                                fontFamily = FontFamily.Default,
+                                color = if (isDark) GuruDarkText else GuruTextDark,
+                                modifier = Modifier.align(Alignment.CenterVertically)
                             )
                         }
-                    }
-
-                    if (afterBlank.isNotBlank()) {
-                        Text(
-                            text = afterBlank,
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Medium,
-                            fontFamily = FontFamily.Default,
-                            color = if (isDark) GuruDarkText else GuruTextDark
-                        )
                     }
                 }
             }
@@ -148,11 +166,11 @@ fun FillBlankQuizView(
         ) {
             options.forEach { option ->
                 val isSelected = selectedWord == option
-                val chipShape = RoundedCornerShape(12.dp)
+                val chipShape = RoundedCornerShape(16.dp)
 
                 val chipBg by animateColorAsState(
                     targetValue = if (isSelected) {
-                        if (isDark) Color(0xFF2E234D) else GuruPurpleLight
+                        if (isDark) GuruDarkPillBg else GuruPurpleLight
                     } else {
                         if (isDark) GuruDarkSurface else Color.White
                     },
@@ -167,6 +185,7 @@ fun FillBlankQuizView(
                 Box(
                     modifier = Modifier
                         .padding(horizontal = 4.dp)
+                        .shadow(1.5.dp, chipShape, ambientColor = Color.Black.copy(alpha = 0.06f))
                         .clip(chipShape)
                         .background(chipBg)
                         .border(if (isSelected) 2.dp else 1.dp, chipBorder, chipShape)
@@ -178,7 +197,7 @@ fun FillBlankQuizView(
                         text = option,
                         fontSize = 16.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                        color = if (isSelected) GuruPurple else (if (isDark) GuruDarkText else GuruTextDark),
+                        color = if (isSelected) (if (isDark) Color.White else GuruPurpleDeep) else (if (isDark) GuruDarkText else GuruTextDark),
                         textAlign = TextAlign.Center
                     )
                 }

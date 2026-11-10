@@ -3,13 +3,15 @@ package com.spokenguru.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavType
@@ -17,10 +19,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.spokenguru.app.data.UserPrefs
 import com.spokenguru.app.data.repository.LessonRepository
 import com.spokenguru.app.ui.components.NavTab
 import com.spokenguru.app.ui.screens.ExerciseEbookScreen
-import com.spokenguru.app.ui.screens.ImportLessonScreen
 import com.spokenguru.app.ui.screens.LessonListScreen
 import com.spokenguru.app.ui.screens.MistakeReviewScreen
 import com.spokenguru.app.ui.screens.ProfileScreen
@@ -36,6 +38,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         ThemeState.init(applicationContext)
+        UserPrefs.init(applicationContext)
 
         repository = LessonRepository(applicationContext)
 
@@ -50,73 +53,82 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     val navController = rememberNavController()
-                    var currentTab by remember { mutableStateOf(NavTab.HOME) }
                     val targetLesson = remember { intent?.getIntExtra("lessonNumber", -1) ?: -1 }
                     val startDest = if (targetLesson > 0) "quiz/$targetLesson" else "home"
 
+                    fun navigateToTab(tab: NavTab, activeTab: NavTab) {
+                        if (tab == activeTab) return
+                        when (tab) {
+                            NavTab.PRACTICE -> {
+                                val resumeLesson = UserPrefs.lastOpenedLesson.coerceAtLeast(1)
+                                navController.navigate("quiz/$resumeLesson")
+                            }
+                            NavTab.HOME -> {
+                                navController.navigate("home") {
+                                    popUpTo("home") { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            }
+                            NavTab.EBOOK -> {
+                                navController.navigate("ebook") {
+                                    popUpTo("home") { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            }
+                            NavTab.PROFILE -> {
+                                navController.navigate("profile") {
+                                    popUpTo("home") { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            }
+                        }
+                    }
+
                     NavHost(
                         navController = navController,
-                        startDestination = startDest
+                        startDestination = startDest,
+                        enterTransition = { fadeIn(animationSpec = tween(220)) },
+                        exitTransition = { fadeOut(animationSpec = tween(180)) },
+                        popEnterTransition = { fadeIn(animationSpec = tween(220)) },
+                        popExitTransition = { fadeOut(animationSpec = tween(180)) }
                     ) {
                         composable("home") {
-                            currentTab = NavTab.HOME
                             LessonListScreen(
                                 repository = repository,
-                                currentTab = currentTab,
-                                onTabSelected = { tab ->
-                                    currentTab = tab
-                                    when (tab) {
-                                        NavTab.HOME -> {}
-                                        NavTab.EBOOK -> navController.navigate("ebook")
-                                        NavTab.PRACTICE -> navController.navigate("quiz/1")
-                                        NavTab.PROFILE -> navController.navigate("profile")
-                                    }
-                                },
+                                currentTab = NavTab.HOME,
+                                onTabSelected = { tab -> navigateToTab(tab, NavTab.HOME) },
                                 onSelectLesson = { lessonNumber ->
+                                    UserPrefs.setLastOpenedLesson(applicationContext, lessonNumber)
                                     navController.navigate("quiz/$lessonNumber")
+                                },
+                                onOpenMistakes = {
+                                    navController.navigate("mistakes")
                                 }
                             )
                         }
 
                         composable("ebook") {
-                            currentTab = NavTab.EBOOK
                             ExerciseEbookScreen(
                                 repository = repository,
-                                currentTab = currentTab,
-                                onTabSelected = { tab ->
-                                    currentTab = tab
-                                    when (tab) {
-                                        NavTab.HOME -> navController.navigate("home")
-                                        NavTab.EBOOK -> {}
-                                        NavTab.PRACTICE -> navController.navigate("quiz/1")
-                                        NavTab.PROFILE -> navController.navigate("profile")
-                                    }
-                                },
+                                currentTab = NavTab.EBOOK,
+                                onTabSelected = { tab -> navigateToTab(tab, NavTab.EBOOK) },
                                 onStartPractice = { lessonNumber ->
+                                    UserPrefs.setLastOpenedLesson(applicationContext, lessonNumber)
                                     navController.navigate("quiz/$lessonNumber")
                                 }
                             )
                         }
 
                         composable("profile") {
-                            currentTab = NavTab.PROFILE
                             ProfileScreen(
                                 repository = repository,
-                                currentTab = currentTab,
-                                onTabSelected = { tab ->
-                                    currentTab = tab
-                                    when (tab) {
-                                        NavTab.HOME -> navController.navigate("home")
-                                        NavTab.EBOOK -> navController.navigate("ebook")
-                                        NavTab.PRACTICE -> navController.navigate("quiz/1")
-                                        NavTab.PROFILE -> {}
-                                    }
-                                },
+                                currentTab = NavTab.PROFILE,
+                                onTabSelected = { tab -> navigateToTab(tab, NavTab.PROFILE) },
                                 onOpenMistakes = {
                                     navController.navigate("mistakes")
-                                },
-                                onOpenImport = {
-                                    navController.navigate("import")
                                 }
                             )
                         }
@@ -125,29 +137,40 @@ class MainActivity : ComponentActivity() {
                             route = "quiz/{lessonNumber}",
                             arguments = listOf(
                                 navArgument("lessonNumber") { type = NavType.IntType }
-                            )
+                            ),
+                            enterTransition = {
+                                slideInHorizontally(tween(260)) { it / 3 } + fadeIn(tween(260))
+                            },
+                            exitTransition = { fadeOut(tween(180)) },
+                            popEnterTransition = { fadeIn(tween(200)) },
+                            popExitTransition = {
+                                slideOutHorizontally(tween(240)) { it / 3 } + fadeOut(tween(200))
+                            }
                         ) { backStackEntry ->
                             val lessonNumber = backStackEntry.arguments?.getInt("lessonNumber") ?: 1
                             WordPickScreen(
                                 lessonNumber = lessonNumber,
                                 repository = repository,
                                 onNavigateBack = {
-                                    navController.popBackStack()
+                                    if (!navController.popBackStack()) {
+                                        navController.navigate("home") {
+                                            popUpTo(0)
+                                        }
+                                    }
                                 }
                             )
                         }
 
-                        composable("mistakes") {
+                        composable(
+                            route = "mistakes",
+                            enterTransition = {
+                                slideInHorizontally(tween(260)) { it / 3 } + fadeIn(tween(260))
+                            },
+                            popExitTransition = {
+                                slideOutHorizontally(tween(240)) { it / 3 } + fadeOut(tween(200))
+                            }
+                        ) {
                             MistakeReviewScreen(
-                                repository = repository,
-                                onNavigateBack = {
-                                    navController.popBackStack()
-                                }
-                            )
-                        }
-
-                        composable("import") {
-                            ImportLessonScreen(
                                 repository = repository,
                                 onNavigateBack = {
                                     navController.popBackStack()

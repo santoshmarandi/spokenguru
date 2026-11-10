@@ -7,16 +7,27 @@ import android.speech.RecognizerIntent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import com.spokenguru.app.ui.theme.isAppDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,6 +41,7 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -43,6 +55,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.automirrored.filled.VolumeMute
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
@@ -53,11 +66,10 @@ import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Translate
-import androidx.compose.material.icons.filled.VolumeMute
-import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
@@ -76,6 +88,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -85,25 +98,36 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.spokenguru.app.audio.SoundEffectManager
 import com.spokenguru.app.audio.TtsManager
+import com.spokenguru.app.data.UserPrefs
 import com.spokenguru.app.data.model.QuestionEntity
 import com.spokenguru.app.data.repository.LessonRepository
 import com.spokenguru.app.ui.components.BankWordTile
+import com.spokenguru.app.ui.components.CelebrationBurstOverlay
 import com.spokenguru.app.ui.components.GuruButton
 import com.spokenguru.app.ui.components.GuruButtonVariant
 import com.spokenguru.app.ui.components.SlotWordChip
+import com.spokenguru.app.ui.components.rememberShakeOffset
+import kotlin.math.roundToInt
 import com.spokenguru.app.ui.theme.GuruAmber
 import com.spokenguru.app.ui.theme.GuruAmberLight
 import com.spokenguru.app.ui.theme.GuruBg
@@ -111,15 +135,21 @@ import com.spokenguru.app.ui.theme.GuruCardBorder
 import com.spokenguru.app.ui.theme.GuruCardBorderDashed
 import com.spokenguru.app.ui.theme.GuruDarkBg
 import com.spokenguru.app.ui.theme.GuruDarkCardBorder
+import com.spokenguru.app.ui.theme.GuruDarkPillBg
 import com.spokenguru.app.ui.theme.GuruDarkSurface
+import com.spokenguru.app.ui.theme.GuruDarkSurfaceContainer
 import com.spokenguru.app.ui.theme.GuruDarkText
 import com.spokenguru.app.ui.theme.GuruDarkTextMuted
 import com.spokenguru.app.ui.theme.GuruMint
 import com.spokenguru.app.ui.theme.GuruMintDark
 import com.spokenguru.app.ui.theme.GuruMintLight
+import com.spokenguru.app.ui.theme.GuruPillBg
+import com.spokenguru.app.ui.theme.GuruProgressTrack
 import com.spokenguru.app.ui.theme.GuruPurple
 import com.spokenguru.app.ui.theme.GuruPurpleBorder
+import com.spokenguru.app.ui.theme.GuruPurpleDeep
 import com.spokenguru.app.ui.theme.GuruPurpleLight
+import com.spokenguru.app.ui.theme.GuruSurfaceContainer
 import com.spokenguru.app.ui.theme.GuruRed
 import com.spokenguru.app.ui.theme.GuruRedDark
 import com.spokenguru.app.ui.theme.GuruRedLight
@@ -165,13 +195,19 @@ fun WordPickScreen(
     var answerState by remember { mutableStateOf(AnswerState.IDLE) }
     var showHintDialog by remember { mutableStateOf(false) }
     var showExitDialog by remember { mutableStateOf(false) }
+    var showJumpDialog by remember { mutableStateOf(false) }
+    var jumpInputText by remember { mutableStateOf("") }
+    var showResetDialog by remember { mutableStateOf(false) }
     var isLessonCompleted by remember { mutableStateOf(false) }
     var showOptionsMenu by remember { mutableStateOf(false) }
+    var sessionCorrectCount by remember { mutableIntStateOf(0) }
+    var sessionAttemptCount by remember { mutableIntStateOf(0) }
+    var celebrationTrigger by remember { mutableIntStateOf(0) }
+    var shakeTrigger by remember { mutableIntStateOf(0) }
 
     // Toggle options
     var tapAudioMode by remember { mutableStateOf(TapAudioMode.TAP_SOUND) }
     var hinglishVisible by remember { mutableStateOf(true) }
-    var extraDistractorsEnabled by remember { mutableStateOf(false) }
     var isTypingMode by remember { mutableStateOf(false) }
     var typedAnswerText by remember { mutableStateOf("") }
     var isAnswerRevealed by remember { mutableStateOf(false) }
@@ -182,6 +218,7 @@ fun WordPickScreen(
 
     // Load questions on launch
     LaunchedEffect(lessonNumber) {
+        UserPrefs.setLastOpenedLesson(context, lessonNumber)
         val list = repository.getQuestionsForLessonSync(lessonNumber)
         if (list.isNotEmpty()) {
             questions = list
@@ -190,8 +227,8 @@ fun WordPickScreen(
         }
     }
 
-    // Set up word bank when question or extraDistractorsEnabled changes
-    LaunchedEffect(currentIndex, questions, extraDistractorsEnabled) {
+    // Set up word bank when question or smartDistractorsEnabled changes
+    LaunchedEffect(currentIndex, questions, UserPrefs.smartDistractorsEnabled) {
         if (questions.isNotEmpty() && currentIndex < questions.size) {
             val q = questions[currentIndex]
             selectedWords.clear()
@@ -204,25 +241,30 @@ fun WordPickScreen(
                 .map { cleanWordPunctuation(it) }
                 .filter { it.isNotBlank() }
 
-            val distractorType = object : TypeToken<List<String>>() {}.type
-            val distractors: List<String> = try {
-                gson.fromJson(q.distractorsJson, distractorType) ?: emptyList()
-            } catch (e: Exception) {
-                emptyList()
-            }
-
             val list = mutableListOf<BankWordItem>()
             correctWords.forEachIndexed { idx, w ->
                 list.add(BankWordItem(id = idx, word = w, isDistractor = false))
             }
-            if (extraDistractorsEnabled) {
-                distractors.take(2).forEachIndexed { idx, w ->
+            if (UserPrefs.smartDistractorsEnabled) {
+                val targetDistractors = if (correctWords.size <= 2) 2 else 3
+                val smartDistractors = selectSmartDistractors(
+                    primaryAnswer = q.primaryAnswer,
+                    alternateAnswersJson = q.alternateAnswersJson,
+                    distractorsJson = q.distractorsJson,
+                    targetCount = targetDistractors,
+                    gson = gson
+                )
+                smartDistractors.forEachIndexed { idx, w ->
                     list.add(BankWordItem(id = 100 + idx, word = w, isDistractor = true))
                 }
             }
 
             bankWords.clear()
-            bankWords.addAll(list.shuffled())
+            bankWords.addAll(
+                shuffleAvoidOrder(list) { candidate ->
+                    candidate.map { cleanSentence(it.word) } == correctWords.map { cleanSentence(it) }
+                }
+            )
         }
     }
 
@@ -267,6 +309,17 @@ fun WordPickScreen(
         }
     }
 
+    fun getTtsSpeakText(q: QuestionEntity): String {
+        if (q.questionType == "FILL_BLANK") {
+            val altsList: List<String> = try {
+                gson.fromJson(q.alternateAnswersJson, object : TypeToken<List<String>>() {}.type) ?: emptyList()
+            } catch (e: Exception) { emptyList() }
+            val full = altsList.firstOrNull { !it.contains("____") && it.contains(" ") }
+            if (!full.isNullOrBlank()) return extractSpeakableEnglish(full)
+        }
+        return extractSpeakableEnglish(q.primaryAnswer)
+    }
+
     fun doCheckAnswer() {
         val userSentence = when (currentQuestion.questionType) {
             "MCQ" -> selectedMcqOption ?: ""
@@ -276,6 +329,7 @@ fun WordPickScreen(
         }
         if (userSentence.isBlank()) return
         lastSubmittedAnswer = userSentence
+        sessionAttemptCount++
 
         keyboardController?.hide()
         val isCorrect = when (currentQuestion.questionType) {
@@ -294,14 +348,20 @@ fun WordPickScreen(
 
         if (isCorrect) {
             answerState = AnswerState.CORRECT
+            sessionCorrectCount++
+            celebrationTrigger++
             if (tapAudioMode != TapAudioMode.OFF) SoundEffectManager.playSuccess()
-            ttsManager.speak(currentQuestion.primaryAnswer)
+            if (UserPrefs.autoPlayAudio) {
+                ttsManager.speak(getTtsSpeakText(currentQuestion))
+            }
+            UserPrefs.recordAnswerCompleted(context, currentQuestion.lessonNumber)
             scope.launch {
                 repository.markQuestionCompleted(currentQuestion.id, currentQuestion.lessonNumber)
                 repository.markMistake(currentQuestion.id, false)
             }
         } else {
             answerState = AnswerState.INCORRECT
+            shakeTrigger++
             if (tapAudioMode != TapAudioMode.OFF) SoundEffectManager.playError()
             scope.launch {
                 repository.markMistake(currentQuestion.id, true)
@@ -318,28 +378,61 @@ fun WordPickScreen(
             val spokenText = spokenResults?.firstOrNull()?.trim()
             if (!spokenText.isNullOrBlank()) {
                 Toast.makeText(context, "\"$spokenText\"", Toast.LENGTH_SHORT).show()
-                typedAnswerText = spokenText
 
-                val spokenTokens = spokenText.split("\\s+".toRegex())
-                    .map { cleanWordPunctuation(it) }
-                    .filter { it.isNotBlank() }
-
-                val matchedItems = mutableListOf<BankWordItem>()
-                val usedIds = mutableSetOf<Int>()
-                spokenTokens.forEachIndexed { index, token ->
-                    val match = bankWords.firstOrNull {
-                        it.id !in usedIds && cleanWordPunctuation(it.word).equals(token, ignoreCase = true)
+                when (currentQuestion.questionType) {
+                    "MCQ" -> {
+                        val matchOpt = parsedOptions.firstOrNull {
+                            cleanSentence(it) == cleanSentence(spokenText) ||
+                                spokenText.contains(it, ignoreCase = true)
+                        }
+                        if (matchOpt != null) {
+                            selectedMcqOption = matchOpt
+                            doCheckAnswer()
+                        }
                     }
-                    if (match != null) {
-                        matchedItems.add(match)
-                        usedIds.add(match.id)
-                    } else {
-                        matchedItems.add(BankWordItem(id = 3000 + index, word = token))
+                    "FILL_BLANK" -> {
+                        val matchOpt = parsedOptions.firstOrNull {
+                            cleanSentence(it) == cleanSentence(spokenText) ||
+                                spokenText.contains(it, ignoreCase = true)
+                        }
+                        if (matchOpt != null) {
+                            selectedBlankWord = matchOpt
+                            doCheckAnswer()
+                        }
+                    }
+                    "SENTENCE_CORRECTION" -> {
+                        val matchOpt = parsedOptions.firstOrNull {
+                            cleanSentence(it) == cleanSentence(spokenText)
+                        }
+                        if (matchOpt != null) {
+                            selectedCorrection = matchOpt
+                            doCheckAnswer()
+                        }
+                    }
+                    else -> {
+                        typedAnswerText = spokenText
+                        val spokenTokens = spokenText.split("\\s+".toRegex())
+                            .map { cleanWordPunctuation(it) }
+                            .filter { it.isNotBlank() }
+
+                        val matchedItems = mutableListOf<BankWordItem>()
+                        val usedIds = mutableSetOf<Int>()
+                        spokenTokens.forEachIndexed { index, token ->
+                            val match = bankWords.firstOrNull {
+                                it.id !in usedIds && cleanWordPunctuation(it.word).equals(token, ignoreCase = true)
+                            }
+                            if (match != null) {
+                                matchedItems.add(match)
+                                usedIds.add(match.id)
+                            } else {
+                                matchedItems.add(BankWordItem(id = 3000 + index, word = token))
+                            }
+                        }
+                        selectedWords.clear()
+                        selectedWords.addAll(matchedItems)
+                        doCheckAnswer()
                     }
                 }
-                selectedWords.clear()
-                selectedWords.addAll(matchedItems)
-                doCheckAnswer()
             }
         }
     }
@@ -371,17 +464,17 @@ fun WordPickScreen(
     Scaffold(
         containerColor = if (isDark) GuruDarkBg else GuruBg,
         topBar = {
-            // Minimalist Sleek Top Bar
+            // Reference-style Sleek M3 Top Bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 IconButton(
                     onClick = { showExitDialog = true },
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(34.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
@@ -391,45 +484,60 @@ fun WordPickScreen(
                     )
                 }
 
-                // Clean Animated Progress Bar with Prev / Next quick navigators
+                // Clean Animated Progress Bar with Prev / Pill Badge / Next
                 Row(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(horizontal = 8.dp),
+                        .padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(
                         onClick = { if (currentIndex > 0) currentIndex-- },
                         enabled = currentIndex > 0,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(30.dp)
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Previous Question",
-                            tint = if (currentIndex > 0) GuruPurple else GuruTextSubtle.copy(alpha = 0.25f),
-                            modifier = Modifier.size(16.dp)
+                            tint = if (currentIndex > 0) (if (isDark) GuruDarkText else GuruTextDark) else GuruTextSubtle.copy(alpha = 0.28f),
+                            modifier = Modifier.size(18.dp)
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
 
                     LinearProgressIndicator(
                         progress = { animatedProgress },
                         modifier = Modifier
                             .weight(1f)
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(3.dp)),
+                            .height(5.dp)
+                            .clip(CircleShape),
                         color = GuruPurple,
-                        trackColor = if (isDark) Color(0xFF1E293B) else Color(0xFFE5E7EB)
+                        trackColor = if (isDark) GuruDarkSurfaceContainer else GuruProgressTrack
                     )
+
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "${currentIndex + 1}/${questions.size}",
-                        fontFamily = FontFamily.Default,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (isDark) GuruDarkTextMuted else GuruTextMuted
-                    )
+
+                    Box(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(if (isDark) GuruDarkPillBg else GuruPurpleLight)
+                            .clickable {
+                                jumpInputText = (currentIndex + 1).toString()
+                                showJumpDialog = true
+                            }
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "${currentIndex + 1}/${questions.size}",
+                            fontFamily = FontFamily.Default,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false,
+                            color = if (isDark) Color.White else GuruPurpleDeep
+                        )
+                    }
 
                     Spacer(modifier = Modifier.width(4.dp))
 
@@ -441,13 +549,13 @@ fun WordPickScreen(
                                 isLessonCompleted = true
                             }
                         },
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(30.dp)
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                             contentDescription = "Next Question",
-                            tint = GuruPurple,
-                            modifier = Modifier.size(16.dp)
+                            tint = if (isDark) GuruDarkText else GuruTextDark,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
@@ -462,16 +570,16 @@ fun WordPickScreen(
                         }
                         Toast.makeText(context, tapAudioMode.toastMessage, Toast.LENGTH_SHORT).show()
                     },
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(34.dp)
                 ) {
                     Icon(
                         imageVector = when (tapAudioMode) {
-                            TapAudioMode.OFF -> Icons.Default.VolumeMute
+                            TapAudioMode.OFF -> Icons.AutoMirrored.Filled.VolumeMute
                             else -> Icons.AutoMirrored.Filled.VolumeUp
                         },
                         contentDescription = "Toggle Audio",
-                        tint = if (tapAudioMode == TapAudioMode.OFF) GuruTextSubtle else GuruPurple,
-                        modifier = Modifier.size(20.dp)
+                        tint = if (tapAudioMode == TapAudioMode.OFF) GuruTextSubtle else (if (isDark) GuruPurple else GuruPurpleDeep),
+                        modifier = Modifier.size(21.dp)
                     )
                 }
 
@@ -494,6 +602,21 @@ fun WordPickScreen(
                         onDismissRequest = { showOptionsMenu = false }
                     ) {
                         DropdownMenuItem(
+                            text = { Text("Jump to Question #...") },
+                            onClick = {
+                                showOptionsMenu = false
+                                jumpInputText = (currentIndex + 1).toString()
+                                showJumpDialog = true
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(if (UserPrefs.autoPlayAudio) "Auto-Speak Answer: ON" else "Auto-Speak Answer: OFF") },
+                            onClick = {
+                                UserPrefs.updateAutoPlayAudio(context, !UserPrefs.autoPlayAudio)
+                                showOptionsMenu = false
+                            }
+                        )
+                        DropdownMenuItem(
                             text = { Text(if (hinglishVisible) "Hide Transliteration" else "Show Transliteration") },
                             onClick = {
                                 hinglishVisible = !hinglishVisible
@@ -501,9 +624,9 @@ fun WordPickScreen(
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text(if (extraDistractorsEnabled) "Less Distractor Tiles" else "More Distractor Tiles") },
+                            text = { Text(if (UserPrefs.smartDistractorsEnabled) "Smart Distractors: ON" else "Smart Distractors: OFF") },
                             onClick = {
-                                extraDistractorsEnabled = !extraDistractorsEnabled
+                                UserPrefs.updateSmartDistractors(context, !UserPrefs.smartDistractorsEnabled)
                                 showOptionsMenu = false
                             }
                         )
@@ -514,100 +637,101 @@ fun WordPickScreen(
                                 showOptionsMenu = false
                             }
                         )
+                        HorizontalDivider()
+                        DropdownMenuItem(
+                            text = { Text("Reset Lesson Progress", color = GuruRed) },
+                            onClick = {
+                                showOptionsMenu = false
+                                showResetDialog = true
+                            }
+                        )
                     }
                 }
             }
         },
         bottomBar = {
-            // Fixed Minimalist Sticky Bottom Bar
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(if (isDark) GuruDarkSurface else Color.White)
-            ) {
-                HorizontalDivider(
-                    thickness = 0.8.dp,
-                    color = (if (isDark) GuruDarkCardBorder else GuruCardBorder).copy(alpha = 0.6f)
-                )
-
+            // Seamless Reference-Style Bottom Utility Row + Capsule CTA
+            if (answerState == AnswerState.IDLE) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 12.dp)
+                        .background(if (isDark) GuruDarkBg else GuruBg)
+                        .padding(horizontal = 20.dp, vertical = 14.dp)
                 ) {
-                    // Secondary Controls: Mode Switcher & Show Answer
-                    if (answerState == AnswerState.IDLE) {
-                        if (currentQuestion.questionType == "SENTENCE_BUILDER") {
+                    if (currentQuestion.questionType == "SENTENCE_BUILDER") {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { isTypingMode = !isTypingMode }
+                                    .padding(vertical = 4.dp, horizontal = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                // Mode toggle button
-                                Row(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .clickable { isTypingMode = !isTypingMode }
-                                        .padding(vertical = 4.dp, horizontal = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = if (isTypingMode) Icons.Default.Translate else Icons.Default.Keyboard,
-                                        contentDescription = null,
-                                        tint = GuruPurple,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = if (isTypingMode) "Use Tiles" else "Type Answer",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = GuruPurple
-                                    )
-                                }
-
-                                // Show Answer text link (subtle, non-intrusive)
+                                Icon(
+                                    imageVector = if (isTypingMode) Icons.Default.Translate else Icons.Default.Keyboard,
+                                    contentDescription = null,
+                                    tint = if (isDark) GuruPurple else GuruPurpleDeep,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "Show Answer",
+                                    text = if (isTypingMode) "USE TILES" else "TYPE ANSWER",
                                     fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = if (isDark) GuruDarkTextMuted else GuruTextMuted,
-                                    modifier = Modifier
-                                        .clickable {
-                                            isAnswerRevealed = true
-                                            val correctWords = currentQuestion.primaryAnswer.split("\\s+".toRegex())
-                                                .map { cleanWordPunctuation(it) }
-                                                .filter { it.isNotBlank() }
-                                            selectedWords.clear()
-                                            correctWords.forEachIndexed { idx, w ->
-                                                selectedWords.add(BankWordItem(id = 2000 + idx, word = w))
-                                            }
-                                            typedAnswerText = currentQuestion.primaryAnswer
-                                            ttsManager.speak(currentQuestion.primaryAnswer)
-                                        }
-                                        .padding(vertical = 4.dp, horizontal = 6.dp)
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.8.sp,
+                                    color = if (isDark) GuruPurple else GuruPurpleDeep
                                 )
                             }
-                            Spacer(modifier = Modifier.height(10.dp))
-                        }
 
-                        // Primary Action Button (full-width)
-                        if (currentQuestion.questionType != "WORD_MATCH") {
-                            GuruButton(
-                                text = "Check Answer",
-                                icon = Icons.Default.Check,
-                                variant = GuruButtonVariant.PRIMARY,
-                                enabled = hasAnswerInput,
-                                onClick = { doCheckAnswer() },
-                                modifier = Modifier.fillMaxWidth(),
-                                height = 48.dp
+                            Text(
+                                text = "SHOW ANSWER",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.8.sp,
+                                color = if (isDark) GuruPurple else GuruPurpleDeep,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        isAnswerRevealed = true
+                                        val correctWords = currentQuestion.primaryAnswer.split("\\s+".toRegex())
+                                            .map { cleanWordPunctuation(it) }
+                                            .filter { it.isNotBlank() }
+                                        selectedWords.clear()
+                                        correctWords.forEachIndexed { idx, w ->
+                                            selectedWords.add(BankWordItem(id = 2000 + idx, word = w))
+                                        }
+                                        typedAnswerText = currentQuestion.primaryAnswer
+                                        ttsManager.speak(getTtsSpeakText(currentQuestion))
+                                    }
+                                    .padding(vertical = 4.dp, horizontal = 4.dp)
                             )
                         }
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+
+                    // Primary Full-Width Capsule Action Button
+                    if (currentQuestion.questionType != "WORD_MATCH") {
+                        GuruButton(
+                            text = "Check Answer",
+                            icon = Icons.Default.Check,
+                            variant = GuruButtonVariant.PRIMARY,
+                            enabled = hasAnswerInput,
+                            onClick = { doCheckAnswer() },
+                            modifier = Modifier.fillMaxWidth(),
+                            height = 54.dp,
+                            shape = CircleShape
+                        )
                     }
                 }
             }
         }
     ) { padding ->
+        val shakeOffset = rememberShakeOffset(shakeTrigger)
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -619,42 +743,67 @@ fun WordPickScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp, vertical = 12.dp)
             ) {
-                // Subtle Category Label
-                Text(
-                    text = currentQuestion.categoryTag.ifBlank { "Lesson Practice" }.uppercase(),
-                    fontFamily = FontFamily.Default,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = GuruPurple,
-                    letterSpacing = 0.8.sp
-                )
+                // Direction-aware smooth question prompt transition
+                AnimatedContent(
+                    targetState = currentIndex,
+                    transitionSpec = {
+                        val forward = targetState > initialState
+                        if (forward) {
+                            (slideInHorizontally(tween(260)) { it / 4 } + fadeIn(tween(240))) togetherWith
+                                (slideOutHorizontally(tween(200)) { -it / 4 } + fadeOut(tween(180)))
+                        } else {
+                            (slideInHorizontally(tween(260)) { -it / 4 } + fadeIn(tween(240))) togetherWith
+                                (slideOutHorizontally(tween(200)) { it / 4 } + fadeOut(tween(180)))
+                        }
+                    },
+                    label = "promptSlide"
+                ) { targetIdx ->
+                    val q = questions.getOrNull(targetIdx) ?: currentQuestion
+                    val qPromptDisplay = if (q.questionType == "FILL_BLANK" &&
+                        q.hindiText.contains("\n") &&
+                        q.hindiText.contains("____")
+                    ) {
+                        q.hindiText.substringBefore("\n").trim()
+                    } else {
+                        q.hindiText
+                    }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                    Column {
+                        Text(
+                            text = q.categoryTag.ifBlank { "Lesson Practice" }.uppercase(),
+                            fontFamily = FontFamily.Default,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isDark) GuruPurple else GuruPurpleDeep,
+                            letterSpacing = 1.2.sp
+                        )
 
-                // The Hindi Prompt (Clean, Large, High Readability)
-                Text(
-                    text = currentQuestion.hindiText,
-                    fontFamily = FontFamily.Default,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isDark) GuruDarkText else GuruTextDark,
-                    lineHeight = 32.sp
-                )
+                        Spacer(modifier = Modifier.height(8.dp))
 
-                // Optional Transliteration
-                if (hinglishVisible && currentQuestion.romanText.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = currentQuestion.romanText,
-                        fontFamily = FontFamily.Default,
-                        fontSize = 14.sp,
-                        color = if (isDark) GuruDarkTextMuted else GuruTextMuted
-                    )
+                        Text(
+                            text = qPromptDisplay,
+                            fontFamily = FontFamily.Default,
+                            fontSize = 23.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isDark) GuruDarkText else GuruTextDark,
+                            lineHeight = 31.sp
+                        )
+
+                        if (hinglishVisible && q.romanText.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(5.dp))
+                            Text(
+                                text = q.romanText,
+                                fontFamily = FontFamily.Default,
+                                fontSize = 14.5.sp,
+                                color = if (isDark) GuruDarkTextMuted else GuruTextMuted
+                            )
+                        }
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // Sleek Minimalist Audio & Help Actions Row
+                // 4-Pill Reference Action Bar (Listen, Slow, Speak, Hint)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -663,13 +812,13 @@ fun WordPickScreen(
                     MinimalistActionButton(
                         icon = Icons.AutoMirrored.Filled.VolumeUp,
                         label = "Listen",
-                        onClick = { ttsManager.speak(currentQuestion.primaryAnswer, isSlow = false) }
+                        onClick = { ttsManager.speak(getTtsSpeakText(currentQuestion), isSlow = false) }
                     )
 
                     MinimalistActionButton(
-                        icon = Icons.Default.Pets,
+                        icon = Icons.Default.Speed,
                         label = "Slow",
-                        onClick = { ttsManager.speak(currentQuestion.primaryAnswer, isSlow = true) }
+                        onClick = { ttsManager.speak(getTtsSpeakText(currentQuestion), isSlow = true) }
                     )
 
                     MinimalistActionButton(
@@ -679,55 +828,60 @@ fun WordPickScreen(
                     )
 
                     MinimalistActionButton(
-                        icon = Icons.Default.Lightbulb,
+                        icon = Icons.Outlined.Lightbulb,
                         label = "Hint",
-                        tint = GuruAmber,
                         onClick = { showHintDialog = true }
                     )
                 }
 
-                // Correct Answer Revealed Banner
-                if (isAnswerRevealed) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(if (isDark) Color(0xFF142B20) else GuruMintLight)
-                            .border(1.dp, GuruMint.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
-                            .padding(horizontal = 14.dp, vertical = 10.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                // Smooth expandable Solution Reveal Banner
+                AnimatedVisibility(
+                    visible = isAnswerRevealed,
+                    enter = expandVertically(tween(220)) + fadeIn(tween(220)),
+                    exit = shrinkVertically(tween(180)) + fadeOut(tween(160))
+                ) {
+                    Column {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(if (isDark) Color(0xFF142B20) else GuruMintLight)
+                                .border(1.dp, GuruMint.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+                                .padding(horizontal = 14.dp, vertical = 10.dp)
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "SOLUTION",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = GuruMintDark,
-                                    letterSpacing = 0.5.sp
-                                )
-                                Text(
-                                    text = currentQuestion.primaryAnswer,
-                                    fontFamily = FontFamily.Default,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 15.sp,
-                                    color = GuruMintDark
-                                )
-                            }
-                            IconButton(
-                                onClick = { ttsManager.speak(currentQuestion.primaryAnswer) },
-                                modifier = Modifier.size(32.dp)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.VolumeUp,
-                                    contentDescription = "Listen",
-                                    tint = GuruMintDark,
-                                    modifier = Modifier.size(18.dp)
-                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "SOLUTION",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = GuruMintDark,
+                                        letterSpacing = 0.5.sp
+                                    )
+                                    Text(
+                                        text = currentQuestion.primaryAnswer,
+                                        fontFamily = FontFamily.Default,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 15.sp,
+                                        color = GuruMintDark
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { ttsManager.speak(getTtsSpeakText(currentQuestion)) },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                                        contentDescription = "Listen",
+                                        tint = GuruMintDark,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -735,24 +889,43 @@ fun WordPickScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                when (currentQuestion.questionType) {
+                // Interactive exercise body with tactile error shake
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .offset { IntOffset(shakeOffset.roundToInt(), 0) }
+                ) {
+                    when (currentQuestion.questionType) {
                     "WORD_MATCH" -> {
                         WordMatchQuizView(
                             matchPairs = parsedMatchPairs,
                             isDark = isDark,
+                            onPairMatched = { left, right ->
+                                if (tapAudioMode == TapAudioMode.TTS) {
+                                    ttsManager.speak(extractSpeakableEnglish("$left, $right"))
+                                }
+                            },
                             onMatchSuccess = {
                                 lastSubmittedAnswer = currentQuestion.primaryAnswer
                                 answerState = AnswerState.CORRECT
+                                sessionAttemptCount++
+                                sessionCorrectCount++
+                                celebrationTrigger++
                                 if (tapAudioMode != TapAudioMode.OFF) SoundEffectManager.playSuccess()
-                                ttsManager.speak(currentQuestion.primaryAnswer)
+                                if (UserPrefs.autoPlayAudio) {
+                                    ttsManager.speak(getTtsSpeakText(currentQuestion))
+                                }
+                                UserPrefs.recordAnswerCompleted(context, currentQuestion.lessonNumber, xpReward = 15)
                                 scope.launch {
                                     repository.markQuestionCompleted(currentQuestion.id, currentQuestion.lessonNumber)
                                     repository.markMistake(currentQuestion.id, false)
                                 }
                             },
-                            onMismatch = { userLeft, userRight, expectedRight ->
+                            onMismatch = { userLeft, userRight, _ ->
                                 lastSubmittedAnswer = "$userLeft ↔ $userRight"
                                 answerState = AnswerState.INCORRECT
+                                sessionAttemptCount++
+                                shakeTrigger++
                                 if (tapAudioMode != TapAudioMode.OFF) SoundEffectManager.playError()
                                 scope.launch {
                                     repository.markMistake(currentQuestion.id, true)
@@ -767,7 +940,11 @@ fun WordPickScreen(
                             onOptionSelected = {
                                 if (answerState == AnswerState.IDLE) {
                                     selectedMcqOption = it
-                                    if (tapAudioMode != TapAudioMode.OFF) SoundEffectManager.playClick()
+                                    if (tapAudioMode == TapAudioMode.TTS) {
+                                        ttsManager.speak(it)
+                                    } else if (tapAudioMode == TapAudioMode.TAP_SOUND) {
+                                        SoundEffectManager.playClick()
+                                    }
                                 }
                             },
                             isDark = isDark
@@ -782,7 +959,12 @@ fun WordPickScreen(
                             if (!fromAlt.isNullOrBlank()) {
                                 fromAlt
                             } else if (currentQuestion.hindiText.contains("____")) {
-                                currentQuestion.hindiText.substringAfter("\n(").substringBefore(")")
+                                val afterNl = currentQuestion.hindiText.substringAfter("\n", currentQuestion.hindiText).trim()
+                                if (afterNl.startsWith("(") && afterNl.endsWith(")")) {
+                                    afterNl.removePrefix("(").removeSuffix(")").trim()
+                                } else {
+                                    afterNl
+                                }
                             } else if (currentQuestion.primaryAnswer.contains(" ")) {
                                 val firstW = currentQuestion.primaryAnswer.split(" ")[0]
                                 currentQuestion.primaryAnswer.replaceFirst(firstW, "____")
@@ -797,7 +979,11 @@ fun WordPickScreen(
                             onWordSelected = {
                                 if (answerState == AnswerState.IDLE) {
                                     selectedBlankWord = it
-                                    if (tapAudioMode != TapAudioMode.OFF) SoundEffectManager.playClick()
+                                    if (tapAudioMode == TapAudioMode.TTS) {
+                                        ttsManager.speak(it)
+                                    } else if (tapAudioMode == TapAudioMode.TAP_SOUND) {
+                                        SoundEffectManager.playClick()
+                                    }
                                 }
                             },
                             isDark = isDark
@@ -822,20 +1008,27 @@ fun WordPickScreen(
                         )
                     }
                     else -> {
-                        // ANSWER PLACEMENT AREA
-                        val slotShape = RoundedCornerShape(16.dp)
+                        // DASHED REFERENCE ANSWER BUILDER BOX
+                        val slotShape = RoundedCornerShape(22.dp)
+                        val dashedBorderColor = if (isDark) GuruDarkCardBorder else GuruCardBorderDashed
+                        val slotSurfaceBg = if (isDark) GuruDarkSurfaceContainer else GuruSurfaceContainer
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .defaultMinSize(minHeight = 110.dp)
+                                .defaultMinSize(minHeight = 154.dp)
                                 .clip(slotShape)
-                                .background(if (isDark) GuruDarkSurface else Color.White)
-                                .border(
-                                    width = 1.dp,
-                                    color = if (isDark) GuruDarkCardBorder else GuruCardBorder,
-                                    shape = slotShape
-                                )
-                                .padding(14.dp),
+                                .background(slotSurfaceBg)
+                                .drawBehind {
+                                    drawRoundRect(
+                                        color = dashedBorderColor,
+                                        style = Stroke(
+                                            width = 1.3.dp.toPx(),
+                                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 10f), 0f)
+                                        ),
+                                        cornerRadius = CornerRadius(22.dp.toPx(), 22.dp.toPx())
+                                    )
+                                }
+                                .padding(16.dp),
                             contentAlignment = Alignment.TopStart
                         ) {
                             if (isTypingMode) {
@@ -843,7 +1036,7 @@ fun WordPickScreen(
                                     value = typedAnswerText,
                                     onValueChange = { typedAnswerText = it },
                                     modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(12.dp),
+                                    shape = RoundedCornerShape(14.dp),
                                     placeholder = {
                                         Text(
                                             text = "Type English translation here...",
@@ -871,7 +1064,7 @@ fun WordPickScreen(
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .height(80.dp),
+                                            .height(122.dp),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
@@ -925,19 +1118,21 @@ fun WordPickScreen(
                                             verticalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
                                             selectedWords.forEach { item ->
-                                                SlotWordChip(
-                                                    text = item.word,
-                                                    onRemove = {
-                                                        if (answerState == AnswerState.IDLE) {
-                                                            when (tapAudioMode) {
-                                                                TapAudioMode.TAP_SOUND -> SoundEffectManager.playClick()
-                                                                TapAudioMode.TTS -> ttsManager.speak(item.word)
-                                                                TapAudioMode.OFF -> {}
+                                                key(item.id) {
+                                                    SlotWordChip(
+                                                        text = item.word,
+                                                        onRemove = {
+                                                            if (answerState == AnswerState.IDLE) {
+                                                                when (tapAudioMode) {
+                                                                    TapAudioMode.TAP_SOUND -> SoundEffectManager.playClick()
+                                                                    TapAudioMode.TTS -> ttsManager.speak(item.word)
+                                                                    TapAudioMode.OFF -> {}
+                                                                }
+                                                                selectedWords.remove(item)
                                                             }
-                                                            selectedWords.remove(item)
                                                         }
-                                                    }
-                                                )
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -955,25 +1150,28 @@ fun WordPickScreen(
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 bankWords.forEach { item ->
-                                    val isSelected = selectedWords.any { it.id == item.id }
-                                    BankWordTile(
-                                        word = item.word,
-                                        isSelected = isSelected,
-                                        onClick = {
-                                            if (answerState == AnswerState.IDLE && !isSelected) {
-                                                when (tapAudioMode) {
-                                                    TapAudioMode.TAP_SOUND -> SoundEffectManager.playClick()
-                                                    TapAudioMode.TTS -> ttsManager.speak(item.word)
-                                                    TapAudioMode.OFF -> {}
+                                    key(item.id) {
+                                        val isSelected = selectedWords.any { it.id == item.id }
+                                        BankWordTile(
+                                            word = item.word,
+                                            isSelected = isSelected,
+                                            onClick = {
+                                                if (answerState == AnswerState.IDLE && !isSelected) {
+                                                    when (tapAudioMode) {
+                                                        TapAudioMode.TAP_SOUND -> SoundEffectManager.playClick()
+                                                        TapAudioMode.TTS -> ttsManager.speak(item.word)
+                                                        TapAudioMode.OFF -> {}
+                                                    }
+                                                    selectedWords.add(item)
                                                 }
-                                                selectedWords.add(item)
                                             }
-                                        }
-                                    )
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
+                }
                 }
 
                 Spacer(modifier = Modifier.height(30.dp))
@@ -1017,6 +1215,12 @@ fun WordPickScreen(
                     )
                 }
             }
+
+            // Celebration confetti + floating XP burst
+            CelebrationBurstOverlay(
+                triggerCount = celebrationTrigger,
+                xpText = if (currentQuestion.questionType == "WORD_MATCH") "+15 XP" else "+10 XP"
+            )
         }
     }
 
@@ -1083,18 +1287,154 @@ fun WordPickScreen(
         )
     }
 
-    // Completion Dialog
+    // Jump to Question # Dialog
+    if (showJumpDialog) {
+        AlertDialog(
+            onDismissRequest = { showJumpDialog = false },
+            title = { Text(text = "Jump to Question", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text(
+                        text = "Enter question number (1 to ${questions.size}):",
+                        fontSize = 13.sp,
+                        color = if (isDark) GuruDarkTextMuted else GuruTextMuted
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = jumpInputText,
+                        onValueChange = { input ->
+                            if (input.all { it.isDigit() }) {
+                                jumpInputText = input
+                            }
+                        },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Number,
+                            imeAction = ImeAction.Go
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onGo = {
+                                val target = jumpInputText.toIntOrNull()
+                                if (target != null && target in 1..questions.size) {
+                                    currentIndex = target - 1
+                                    showJumpDialog = false
+                                }
+                            }
+                        ),
+                        placeholder = { Text("1 - ${questions.size}") },
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val target = jumpInputText.toIntOrNull()
+                        if (target != null && target in 1..questions.size) {
+                            currentIndex = target - 1
+                            showJumpDialog = false
+                        } else {
+                            Toast.makeText(context, "Enter number between 1 and ${questions.size}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                ) {
+                    Text("Go", fontWeight = FontWeight.Bold, color = GuruPurple)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showJumpDialog = false }) {
+                    Text("Cancel", color = GuruTextMuted)
+                }
+            }
+        )
+    }
+
+    // Reset Lesson Progress Dialog
+    if (showResetDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetDialog = false },
+            title = { Text(text = "Reset Lesson Progress?", fontWeight = FontWeight.Bold) },
+            text = { Text(text = "This will clear completed flags for this lesson so you can practice all questions fresh from #1.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showResetDialog = false
+                        scope.launch {
+                            repository.resetLesson(lessonNumber)
+                            questions = repository.getQuestionsForLessonSync(lessonNumber)
+                            currentIndex = 0
+                            sessionCorrectCount = 0
+                            sessionAttemptCount = 0
+                        }
+                        Toast.makeText(context, "Lesson progress reset", Toast.LENGTH_SHORT).show()
+                    }
+                ) {
+                    Text("Reset", color = GuruRed, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetDialog = false }) {
+                    Text("Cancel", color = GuruPurple, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
+    // Completion Summary Dialog
     if (isLessonCompleted) {
+        val accuracy = if (sessionAttemptCount > 0) {
+            ((sessionCorrectCount * 100f) / sessionAttemptCount).toInt()
+        } else 100
+        val xpEarned = sessionCorrectCount * 10
         AlertDialog(
             onDismissRequest = { onNavigateBack() },
             title = { Text(text = "🎉 Lesson Completed!", fontWeight = FontWeight.Bold) },
-            text = { Text(text = "Great job! You have successfully completed all practice questions in this lesson.") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(text = "शानदार! आपने इस लेसन का अभ्यास पूरा कर लिया।")
+                    if (sessionAttemptCount > 0) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isDark) Color(0xFF1E293B) else GuruPurpleLight.copy(alpha = 0.6f))
+                                .padding(12.dp)
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(
+                                    text = "Accuracy: $accuracy% ($sessionCorrectCount/$sessionAttemptCount)",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = GuruPurple
+                                )
+                                Text(
+                                    text = "XP Earned: +$xpEarned XP • Streak: ${UserPrefs.streakDays} Days",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = GuruMintDark
+                                )
+                            }
+                        }
+                    }
+                }
+            },
             confirmButton = {
                 GuruButton(
                     text = "Back to Lessons",
                     onClick = onNavigateBack,
                     height = 46.dp
                 )
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        isLessonCompleted = false
+                        currentIndex = 0
+                    }
+                ) {
+                    Text("Restart Q1", color = GuruPurple, fontWeight = FontWeight.Bold)
+                }
             }
         )
     }
@@ -1108,24 +1448,37 @@ private fun MinimalistActionButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     onClick: () -> Unit,
-    tint: Color = GuruPurple
+    tint: Color = GuruPurpleDeep
 ) {
     val isDark = isAppDarkTheme()
-    val shape = RoundedCornerShape(10.dp)
+    val shape = CircleShape
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.94f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "actionPillScale"
+    )
+    val resolvedTint = if (isDark && tint == GuruPurpleDeep) GuruPurple else tint
 
     Row(
         modifier = Modifier
+            .scale(scale)
             .clip(shape)
-            .background(if (isDark) GuruDarkSurface else Color.White)
+            .background(if (isDark) GuruDarkPillBg else GuruPillBg)
             .border(1.dp, if (isDark) GuruDarkCardBorder else GuruCardBorder, shape)
-            .clickable(onClick = onClick)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
             .padding(horizontal = 10.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = icon,
             contentDescription = label,
-            tint = tint,
+            tint = resolvedTint,
             modifier = Modifier.size(15.dp)
         )
         Spacer(modifier = Modifier.width(5.dp))
@@ -1134,6 +1487,8 @@ private fun MinimalistActionButton(
             fontFamily = FontFamily.Default,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            softWrap = false,
             color = if (isDark) GuruDarkText else GuruTextDark
         )
     }
@@ -1275,7 +1630,7 @@ fun MinimalIncorrectFeedbackCard(
                 }
 
                 IconButton(
-                    onClick = { ttsManager.speak(currentQuestion.primaryAnswer) },
+                    onClick = { ttsManager.speak(extractSpeakableEnglish(currentQuestion.primaryAnswer)) },
                     modifier = Modifier.size(32.dp)
                 ) {
                     Icon(

@@ -35,10 +35,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spokenguru.app.ui.theme.GuruCardBorder
 import com.spokenguru.app.ui.theme.GuruDarkCardBorder
+import com.spokenguru.app.ui.theme.GuruDarkPillBg
 import com.spokenguru.app.ui.theme.GuruDarkSurface
+import com.spokenguru.app.ui.theme.GuruDarkSurfaceContainer
 import com.spokenguru.app.ui.theme.GuruDarkText
+import com.spokenguru.app.ui.theme.GuruPillBg
 import com.spokenguru.app.ui.theme.GuruPurple
+import com.spokenguru.app.ui.theme.GuruPurpleDeep
 import com.spokenguru.app.ui.theme.GuruPurpleLight
+import com.spokenguru.app.ui.theme.GuruSurfaceContainer
 import com.spokenguru.app.ui.theme.GuruTextDark
 import com.spokenguru.app.ui.theme.GuruTextMuted
 import com.spokenguru.app.ui.theme.isAppDarkTheme
@@ -82,7 +87,7 @@ fun McqOptionCard(
     isDark: Boolean,
     onClick: () -> Unit
 ) {
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(20.dp)
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -93,7 +98,7 @@ fun McqOptionCard(
 
     val bgColor by animateColorAsState(
         targetValue = if (isSelected) {
-            if (isDark) Color(0xFF2B2248) else GuruPurpleLight
+            if (isDark) GuruDarkPillBg else GuruPurpleLight
         } else {
             if (isDark) GuruDarkSurface else Color.White
         },
@@ -110,9 +115,9 @@ fun McqOptionCard(
             .fillMaxWidth()
             .scale(scale)
             .shadow(
-                elevation = if (isSelected) 3.dp else 1.dp,
+                elevation = if (isSelected) 3.dp else 1.5.dp,
                 shape = shape,
-                ambientColor = if (isSelected) GuruPurple.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.04f)
+                ambientColor = if (isSelected) GuruPurple.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.05f)
             )
             .clip(shape)
             .background(bgColor)
@@ -138,7 +143,7 @@ fun McqOptionCard(
                     .size(32.dp)
                     .clip(CircleShape)
                     .background(
-                        if (isSelected) GuruPurple else (if (isDark) Color(0xFF1E293B) else Color(0xFFF1F2F6))
+                        if (isSelected) GuruPurple else (if (isDark) GuruDarkSurfaceContainer else GuruPillBg)
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -146,7 +151,7 @@ fun McqOptionCard(
                     text = label,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (isSelected) Color.White else (if (isDark) GuruDarkText else GuruTextDark)
+                    color = if (isSelected) Color.White else (if (isDark) GuruDarkText else GuruPurpleDeep)
                 )
             }
 
@@ -158,7 +163,7 @@ fun McqOptionCard(
                 fontSize = 15.sp,
                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                 fontFamily = FontFamily.Default,
-                color = if (isSelected) (if (isDark) Color.White else GuruPurple) else (if (isDark) GuruDarkText else GuruTextDark),
+                color = if (isSelected) (if (isDark) Color.White else GuruPurpleDeep) else (if (isDark) GuruDarkText else GuruTextDark),
                 modifier = Modifier.weight(1f)
             )
         }

@@ -1,5 +1,11 @@
 package com.spokenguru.app.ui.components
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -13,25 +19,27 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material3.Divider
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
@@ -40,9 +48,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spokenguru.app.ui.theme.GuruCardBorder
 import com.spokenguru.app.ui.theme.GuruDarkCardBorder
+import com.spokenguru.app.ui.theme.GuruDarkPillBg
 import com.spokenguru.app.ui.theme.GuruDarkSurface
 import com.spokenguru.app.ui.theme.GuruPurple
+import com.spokenguru.app.ui.theme.GuruPurpleDeep
 import com.spokenguru.app.ui.theme.GuruPurpleLight
+import com.spokenguru.app.ui.theme.GuruSurfaceContainer
 import com.spokenguru.app.ui.theme.GuruTextSubtle
 
 enum class NavTab {
@@ -59,7 +70,7 @@ fun AppBottomNavigation(
     modifier: Modifier = Modifier
 ) {
     val isDark = isAppDarkTheme()
-    val bg = if (isDark) GuruDarkSurface else Color.White
+    val bg = if (isDark) GuruDarkSurface else GuruSurfaceContainer
     val borderColor = if (isDark) GuruDarkCardBorder else GuruCardBorder
 
     Column(
@@ -69,13 +80,13 @@ fun AppBottomNavigation(
     ) {
         HorizontalDivider(
             thickness = 0.8.dp,
-            color = borderColor.copy(alpha = 0.7f)
+            color = borderColor.copy(alpha = 0.45f)
         )
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(60.dp)
-                .padding(horizontal = 16.dp),
+                .height(66.dp)
+                .padding(horizontal = 12.dp),
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -88,8 +99,8 @@ fun AppBottomNavigation(
             )
             NavItem(
                 label = "eBook",
-                icon = Icons.Outlined.MenuBook,
-                activeIcon = Icons.Default.MenuBook,
+                icon = Icons.AutoMirrored.Outlined.MenuBook,
+                activeIcon = Icons.AutoMirrored.Filled.MenuBook,
                 isSelected = currentTab == NavTab.EBOOK,
                 onClick = { onTabSelected(NavTab.EBOOK) }
             )
@@ -121,6 +132,28 @@ private fun NavItem(
 ) {
     val isDark = isAppDarkTheme()
     val interactionSource = remember { MutableInteractionSource() }
+    val pillWidth by animateDpAsState(
+        targetValue = if (isSelected) 58.dp else 32.dp,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "pillWidth"
+    )
+    val pillBg by animateColorAsState(
+        targetValue = if (isSelected) {
+            if (isDark) GuruDarkPillBg else GuruPurpleLight
+        } else Color.Transparent,
+        animationSpec = tween(220),
+        label = "pillBg"
+    )
+    val tintColor by animateColorAsState(
+        targetValue = if (isSelected) (if (isDark) Color.White else GuruPurpleDeep) else GuruTextSubtle,
+        animationSpec = tween(200),
+        label = "tintColor"
+    )
+    val iconScale by animateFloatAsState(
+        targetValue = if (isSelected) 1.1f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "iconScale"
+    )
 
     Column(
         modifier = Modifier
@@ -135,29 +168,28 @@ private fun NavItem(
     ) {
         Box(
             modifier = Modifier
-                .size(width = 46.dp, height = 26.dp)
-                .clip(RoundedCornerShape(13.dp))
-                .background(
-                    if (isSelected) {
-                        if (isDark) Color(0xFF1E293B) else GuruPurpleLight
-                    } else Color.Transparent
-                ),
+                .width(pillWidth)
+                .height(30.dp)
+                .clip(CircleShape)
+                .background(pillBg),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = if (isSelected) activeIcon else icon,
                 contentDescription = label,
-                tint = if (isSelected) GuruPurple else GuruTextSubtle,
-                modifier = Modifier.size(20.dp)
+                tint = tintColor,
+                modifier = Modifier
+                    .size(20.dp)
+                    .scale(iconScale)
             )
         }
-        Spacer(modifier = Modifier.height(2.dp))
+        Spacer(modifier = Modifier.height(3.dp))
         Text(
             text = label,
             fontFamily = FontFamily.Default,
             fontSize = 11.sp,
-            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (isSelected) GuruPurple else GuruTextSubtle
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+            color = tintColor
         )
     }
 }
